@@ -3,3 +3,5 @@
 ユーザーリスト　　salesles-management-app/data/user_list.json
 
 ユーザー登録フォームのレイアウト　　　/Users/minamidenshiimanaka/AI/han/sales-management-app/src/app/users/page.tsx 
+
+取引先リスト　　　sales-management-app/data/customer_list.json

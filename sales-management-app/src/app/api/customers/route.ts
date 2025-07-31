@@ -1,30 +1,37 @@
-import { NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
+import { NextRequest, NextResponse } from 'next/server';
+import fs from 'fs';
+import path from 'path';
+import { v4 as uuidv4 } from 'uuid';
 
-// 取引先一覧取得
+const customersFilePath = path.join(process.cwd(), 'data', 'customer_list.json');
+
 export async function GET() {
   try {
-    const customers = await prisma.customer.findMany();
+    const customersData = fs.readFileSync(customersFilePath, 'utf-8');
+    const customers = JSON.parse(customersData);
     return NextResponse.json(customers);
-  } catch (error) {
-    console.error('Error fetching customers:', error);
-    if (error instanceof Error) {
-      console.error('Error name:', error.name);
-      console.error('Error message:', error.message);
-      console.error('Error stack:', error.stack);
+  } catch (error: unknown) {
+    if (typeof error === 'object' && error !== null && 'code' in error && (error as { code: string }).code === 'ENOENT') {
+      // ファイルが存在しない場合は空の配列を返す
+      return NextResponse.json([], { status: 200 });
     }
-    return NextResponse.json({ error: 'Failed to fetch customers', details: error instanceof Error ? error.message : String(error) }, { status: 500 });
+    console.error('Error reading customers data:', error);
+    return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
   }
 }
 
-// 取引先登録
-export async function POST(request: Request) {
+export async function POST(req: NextRequest) {
   try {
-    const body = await request.json();
-    const newCustomer = await prisma.customer.create({ data: body });
+    const newCustomer = await req.json();
+    newCustomer.customer_id = uuidv4(); // 自動付番
+
+    const customersData = fs.readFileSync(customersFilePath, 'utf-8');
+    const customers = JSON.parse(customersData);
+    customers.push(newCustomer);
+    fs.writeFileSync(customersFilePath, JSON.stringify(customers, null, 2), 'utf-8');
     return NextResponse.json(newCustomer, { status: 201 });
   } catch (error) {
-    console.error('Error creating customer:', error);
-    return NextResponse.json({ error: 'Failed to create customer' }, { status: 500 });
+    console.error('Error adding customer:', error);
+    return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
   }
 }

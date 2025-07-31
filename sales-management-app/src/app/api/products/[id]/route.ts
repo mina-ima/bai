@@ -4,7 +4,7 @@ import prisma from '@/lib/prisma';
 // 商品削除
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: any
 ) {
   const id = params.id;
   try {

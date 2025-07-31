@@ -24,21 +24,7 @@ model Product {
   deliveries                 Delivery[]
 }
 
-model Customer {
-  customer_id            String     @id @default(uuid())
-  customer_name          String
-  customer_formalName    String?
-  customer_postalCode    String?
-  customer_address       String?
-  customer_phone         String?
-  customer_mail          String?
-  customer_contactPerson String?
-  customer_rounding      String // "四捨五入" | "切上げ" | "切捨て"
-  customer_closingDay    String?
-  customer_paymentTerms  String?
-  invoiceDeliveryMethod  String?
-  deliveries             Delivery[]
-}
+
 
 model CompanyInfo {
   id                    String  @id @default(uuid())
@@ -77,6 +63,5 @@ model Delivery {
   productId String
   product   Product @relation(fields: [productId], references: [product_id])
 
-  customerId String
-  customer   Customer @relation(fields: [customerId], references: [customer_id])
+  
 }

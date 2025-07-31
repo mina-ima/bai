@@ -4,7 +4,7 @@ import path from 'path';
 
 const usersFilePath = path.join(process.cwd(), 'data', 'user_list.json');
 
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+export async function DELETE(request: Request, { params }: any) {
   try {
     const { id } = params;
     const usersData = fs.readFileSync(usersFilePath, 'utf-8');

@@ -17,6 +17,7 @@ const products: Product[] = [
     product_unit: '個',
     product_unitPrice: 1000,
     product_note: 'テスト商品A',
+    customer_name: '取引先A',
   },
   {
     product_id: 'P002',
@@ -29,6 +30,7 @@ const products: Product[] = [
     product_unit: '本',
     product_unitPrice: 500,
     product_note: 'テスト商品B',
+    customer_name: '取引先B',
   },
 ];
 
