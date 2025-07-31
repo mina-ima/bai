@@ -12,8 +12,10 @@ export default function AuthenticatedLayout({
   const router = useRouter();
 
   useEffect(() => {
+    console.log('AuthenticatedLayout useEffect - status:', status, 'session:', session);
     if (status === 'loading') return; // セッションの読み込み中は何もせず待機
     if (!session) {
+      console.log('AuthenticatedLayout: No session found, redirecting to /login');
       router.push('/login'); // ログインしていない場合はログインページへリダイレクト
     }
   }, [session, status, router]);
@@ -24,9 +26,9 @@ export default function AuthenticatedLayout({
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
+    <div className="flex min-h-screen">
       <Navbar />
-      <main style={{ flexGrow: 1, padding: '20px', backgroundColor: '#f8f9fa' }}>
+      <main className="flex-grow p-5 bg-gray-100 flex flex-col items-center overflow-y-auto h-screen">
         {children}
       </main>
     </div>

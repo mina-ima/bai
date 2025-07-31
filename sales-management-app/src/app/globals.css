@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* Reset styles */
 html,
 body {
@@ -120,4 +124,12 @@ nav button {
 
 nav button:hover {
   background-color: #c0392b;
+}
+
+.text-size-30 {
+  font-size: 30px;
+}
+
+.text-size-25 {
+  font-size: 25px;
 }

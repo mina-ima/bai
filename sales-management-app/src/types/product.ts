@@ -9,4 +9,5 @@ export interface Product {
   product_unit: string;
   product_unitPrice: number;
   product_note: string;
+  customer_name: string;
 }

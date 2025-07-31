@@ -3,7 +3,6 @@
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../src/generated/prisma"
 }
 
 datasource db {
@@ -12,37 +11,37 @@ datasource db {
 }
 
 model Product {
-  product_id           String   @id @default(uuid())
-  product_name         String
-  product_shippingName String?
+  product_id                 String     @id @default(uuid())
+  product_name               String
+  product_shippingName       String?
   product_shippingPostalcode String?
-  product_shippingAddress String?
-  product_shippingPhone String?
-  product_tax          Int
-  product_unit         String
-  product_unitPrice    Int
-  product_note         String?
-  deliveries           Delivery[]
+  product_shippingAddress    String?
+  product_shippingPhone      String?
+  product_tax                Int
+  product_unit               String
+  product_unitPrice          Int
+  product_note               String?
+  deliveries                 Delivery[]
 }
 
 model Customer {
-  customer_id         String   @id @default(uuid())
-  customer_name       String
-  customer_formalName String?
-  customer_postalCode String?
-  customer_address    String?
-  customer_phone      String?
-  customer_mail       String?
+  customer_id            String     @id @default(uuid())
+  customer_name          String
+  customer_formalName    String?
+  customer_postalCode    String?
+  customer_address       String?
+  customer_phone         String?
+  customer_mail          String?
   customer_contactPerson String?
-  customer_rounding   String // "四捨五入" | "切上げ" | "切捨て"
-  customer_closingDay String?
-  customer_paymentTerms String?
-  invoiceDeliveryMethod String?
-  deliveries          Delivery[]
+  customer_rounding      String // "四捨五入" | "切上げ" | "切捨て"
+  customer_closingDay    String?
+  customer_paymentTerms  String?
+  invoiceDeliveryMethod  String?
+  deliveries             Delivery[]
 }
 
 model CompanyInfo {
-  id                    String   @id @default(uuid())
+  id                    String  @id @default(uuid())
   company_name          String
   company_postalCode    String?
   company_address       String?
@@ -55,29 +54,29 @@ model CompanyInfo {
   company_bankType      String?
   company_bankNumber    String?
   company_bankHolder    String?
-  company_invoiveNumber String?
+  company_invoiceNumber String?
 }
 
 model Delivery {
-  delivery_id          String   @id @default(uuid())
-  delivery_name        String
-  delivery_quantity    Int
-  delivery_unitPrice   Int
-  delivery_unit        String
-  delivery_note        String?
-  delivery_tax         Int
-  delivery_orderId     String?
-  delivery_salesGroup  String?
-  customer_name        String // customer_nameはCustomerモデルとのリレーションで取得するが、ここでは簡易的にStringで保持
-  delivery_number      String   @unique @default(uuid()) // 自動付番
+  delivery_id            String   @id @default(uuid())
+  delivery_name          String
+  delivery_quantity      Int
+  delivery_unitPrice     Int
+  delivery_unit          String
+  delivery_note          String?
+  delivery_tax           Int
+  delivery_orderId       String?
+  delivery_salesGroup    String?
+  customer_name          String // customer_nameはCustomerモデルとのリレーションで取得するが、ここでは簡易的にStringで保持
+  delivery_number        String   @unique @default(uuid()) // 自動付番
   delivery_invoiceNumber String? // 自動付番
-  delivery_status      String   // "済" | "未"
+  delivery_status        String // "済" | "未"
   delivery_invoiceStatus String? // "済" | "未"
-  delivery_date        DateTime
+  delivery_date          DateTime
 
-  productId            String
-  product              Product  @relation(fields: [productId], references: [product_id])
+  productId String
+  product   Product @relation(fields: [productId], references: [product_id])
 
-  customerId           String
-  customer             Customer @relation(fields: [customerId], references: [customer_id])
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [customer_id])
 }
