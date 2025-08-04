@@ -4,8 +4,12 @@ import { useState, useEffect } from 'react';
 import AuthenticatedLayout from '@/components/AuthenticatedLayout';
 import { Customer } from '@/types/customer';
 
+interface EditableCustomer extends Customer {
+  isEditing?: boolean;
+}
+
 export default function CustomersPage() {
-  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [customers, setCustomers] = useState<EditableCustomer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState<Omit<Customer, 'customer_id'>>({
@@ -94,14 +98,47 @@ export default function CustomersPage() {
     }
   };
 
+  const handleEdit = (customerId: string) => {
+    setCustomers(customers.map(customer =>
+      customer.customer_id === customerId ? { ...customer, isEditing: true } : customer
+    ));
+  };
+
+  const handleSave = async (customerToSave: EditableCustomer) => {
+    try {
+      const response = await fetch(`/api/customers/${customerToSave.customer_id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(customerToSave),
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      setCustomers(customers.map(customer =>
+        customer.customer_id === customerToSave.customer_id ? { ...customerToSave, isEditing: false } : customer
+      ));
+    } catch (e: any) {
+      setError(e.message);
+    }
+  };
+
+  const handleCancel = (customerId: string) => {
+    setCustomers(customers.map(customer =>
+      customer.customer_id === customerId ? { ...customer, isEditing: false } : customer
+    ));
+    fetchCustomers(); // 元のデータを再取得してリセット
+  };
+
   if (loading) return <p>Loading customers...</p>;
   if (error) return <p>Error: {error}</p>;
 
   return (
     <AuthenticatedLayout>
-      <div className="w-4/5 mx-auto p-8">
+      <div className="w-full mx-auto p-8">
         <h1 className="text-size-30 font-bold text-center">取引先登録</h1>
-        <form onSubmit={handleSubmit} className="bg-white shadow-md rounded-lg p-8 mb-8">
+        <form onSubmit={handleSubmit} onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }} className="bg-white shadow-md rounded-lg p-8 mb-8">
           {/* Row 1: Customer Name & Formal Name */}
           <div className="mb-2 flex space-x-4">
             <div className="w-1/2 flex items-center">
@@ -284,44 +321,196 @@ export default function CustomersPage() {
         <h2 className="text-size-30 font-bold text-center mt-[50px]">取引先リスト</h2>
         <div className="mt-8">
           <div className="overflow-x-auto">
-            <table className="min-w-full border-collapse border-[3px] border-blue-600">
+            <table className="min-w-full border-collapse border border-gray-300">
               <thead>
-                <tr>
-                  <th className="py-3 px-4 bg-blue-600 text-white font-bold uppercase text-sm text-left border-[3px] border-blue-600">取引先名</th>
-                  <th className="py-3 px-4 bg-blue-600 text-white font-bold uppercase text-sm text-left border-[3px] border-blue-600">正式名称</th>
-                  <th className="py-3 px-4 bg-blue-600 text-white font-bold uppercase text-sm text-left border-[3px] border-blue-600">郵便番号</th>
-                  <th className="py-3 px-4 bg-blue-600 text-white font-bold uppercase text-sm text-left border-[3px] border-blue-600">住所</th>
-                  <th className="py-3 px-4 bg-blue-600 text-white font-bold uppercase text-sm text-left border-[3px] border-blue-600">電話番号</th>
-                  <th className="py-3 px-4 bg-blue-600 text-white font-bold uppercase text-sm text-left border-[3px] border-blue-600">メール</th>
-                  <th className="py-3 px-4 bg-blue-600 text-white font-bold uppercase text-sm text-left border-[3px] border-blue-600">担当者</th>
-                  <th className="py-3 px-4 bg-blue-600 text-white font-bold uppercase text-sm text-left border-[3px] border-blue-600">端数処理</th>
-                  <th className="py-3 px-4 bg-blue-600 text-white font-bold uppercase text-sm text-left border-[3px] border-blue-600">締日</th>
-                  <th className="py-3 px-4 bg-blue-600 text-white font-bold uppercase text-sm text-left border-[3px] border-blue-600">支払条件</th>
-                  <th className="py-3 px-4 bg-blue-600 text-white font-bold uppercase text-sm text-left border-[3px] border-blue-600">請求書発送方法</th>
-                  <th className="py-3 px-4 bg-blue-600 text-white font-bold uppercase text-sm text-center border-[3px] border-blue-600">操作</th>
+                <tr className="bg-blue-600">
+                  <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">取引先名</th>
+                  <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">正式名称</th>
+                  <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">郵便番号</th>
+                  <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">住所</th>
+                  <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">電話番号</th>
+                  <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">メール</th>
+                  <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">担当者</th>
+                  <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">端数処理</th>
+                  <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">締日</th>
+                  <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">支払条件</th>
+                  <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">請求書発送方法</th>
+                  <th className="py-2 px-4 text-white font-bold text-sm text-center border border-gray-300 whitespace-nowrap">編集</th>
+                  <th className="py-2 px-4 text-white font-bold text-sm text-center border border-gray-300 whitespace-nowrap">削除</th>
                 </tr>
               </thead>
               <tbody>
                 {customers.map((customer) => (
-                  <tr key={customer.customer_id} className="even:bg-gray-50 hover:bg-gray-100">
-                    <td className="py-2 px-4 text-left border-[3px] border-blue-600 text-sm">{customer.customer_name}</td>
-                    <td className="py-2 px-4 text-left border-[3px] border-blue-600 text-sm">{customer.customer_formalName}</td>
-                    <td className="py-2 px-4 text-left border-[3px] border-blue-600 text-sm">{customer.customer_postalCode}</td>
-                    <td className="py-2 px-4 text-left border-[3px] border-blue-600 text-sm">{customer.customer_address}</td>
-                    <td className="py-2 px-4 text-left border-[3px] border-blue-600 text-sm">{customer.customer_phone}</td>
-                    <td className="py-2 px-4 text-left border-[3px] border-blue-600 text-sm">{customer.customer_mail}</td>
-                    <td className="py-2 px-4 text-left border-[3px] border-blue-600 text-sm">{customer.customer_contactPerson}</td>
-                    <td className="py-2 px-4 text-left border-[3px] border-blue-600 text-sm">{customer.customer_rounding}</td>
-                    <td className="py-2 px-4 text-left border-[3px] border-blue-600 text-sm">{customer.customer_closingDay}</td>
-                    <td className="py-2 px-4 text-left border-[3px] border-blue-600 text-sm">{customer.customer_paymentTerms}</td>
-                    <td className="py-2 px-4 text-left border-[3px] border-blue-600 text-sm">{customer.invoiceDeliveryMethod}</td>
-                    <td className="py-2 px-4 text-center border-[3px] border-blue-600 text-sm">
-                      <button
-                        onClick={() => handleDelete(customer.customer_id)}
-                        className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
-                      >
-                        削除
-                      </button>
+                  <tr key={customer.customer_id} className="even:bg-gray-100">
+                    <td className="py-1 px-4 text-left border border-gray-300 text-sm whitespace-nowrap">
+                      {customer.isEditing ? (
+                        <input
+                          type="text"
+                          value={customer.customer_name}
+                          onChange={(e) => setCustomers(customers.map(c => c.customer_id === customer.customer_id ? { ...c, customer_name: e.target.value } : c))}
+                          className="w-full p-1 border rounded"
+                        />
+                      ) : (
+                        customer.customer_name
+                      )}
+                    </td>
+                    <td className="py-1 px-4 text-left border border-gray-300 text-sm whitespace-nowrap">
+                      {customer.isEditing ? (
+                        <input
+                          type="text"
+                          value={customer.customer_formalName}
+                          onChange={(e) => setCustomers(customers.map(c => c.customer_id === customer.customer_id ? { ...c, customer_formalName: e.target.value } : c))}
+                          className="w-full p-1 border rounded"
+                        />
+                      ) : (
+                        customer.customer_formalName
+                      )}
+                    </td>
+                    <td className="py-1 px-4 text-left border border-gray-300 text-sm whitespace-nowrap">
+                      {customer.isEditing ? (
+                        <input
+                          type="text"
+                          value={customer.customer_postalCode}
+                          onChange={(e) => setCustomers(customers.map(c => c.customer_id === customer.customer_id ? { ...c, customer_postalCode: e.target.value } : c))}
+                          className="w-full p-1 border rounded"
+                        />
+                      ) : (
+                        customer.customer_postalCode
+                      )}
+                    </td>
+                    <td className="py-1 px-4 text-left border border-gray-300 text-sm whitespace-nowrap">
+                      {customer.isEditing ? (
+                        <input
+                          type="text"
+                          value={customer.customer_address}
+                          onChange={(e) => setCustomers(customers.map(c => c.customer_id === customer.customer_id ? { ...c, customer_address: e.target.value } : c))}
+                          className="w-full p-1 border rounded"
+                        />
+                      ) : (
+                        customer.customer_address
+                      )}
+                    </td>
+                    <td className="py-1 px-4 text-left border border-gray-300 text-sm whitespace-nowrap">
+                      {customer.isEditing ? (
+                        <input
+                          type="text"
+                          value={customer.customer_phone}
+                          onChange={(e) => setCustomers(customers.map(c => c.customer_id === customer.customer_id ? { ...c, customer_phone: e.target.value } : c))}
+                          className="w-full p-1 border rounded"
+                        />
+                      ) : (
+                        customer.customer_phone
+                      )}
+                    </td>
+                    <td className="py-1 px-4 text-left border border-gray-300 text-sm whitespace-nowrap">
+                      {customer.isEditing ? (
+                        <input
+                          type="email"
+                          value={customer.customer_mail}
+                          onChange={(e) => setCustomers(customers.map(c => c.customer_id === customer.customer_id ? { ...c, customer_mail: e.target.value } : c))}
+                          className="w-full p-1 border rounded"
+                        />
+                      ) : (
+                        customer.customer_mail
+                      )}
+                    </td>
+                    <td className="py-1 px-4 text-left border border-gray-300 text-sm whitespace-nowrap">
+                      {customer.isEditing ? (
+                        <input
+                          type="text"
+                          value={customer.customer_contactPerson}
+                          onChange={(e) => setCustomers(customers.map(c => c.customer_id === customer.customer_id ? { ...c, customer_contactPerson: e.target.value } : c))}
+                          className="w-full p-1 border rounded"
+                        />
+                      ) : (
+                        customer.customer_contactPerson
+                      )}
+                    </td>
+                    <td className="py-1 px-4 text-left border border-gray-300 text-sm whitespace-nowrap">
+                      {customer.isEditing ? (
+                        <select
+                          value={customer.customer_rounding}
+                          onChange={(e) => setCustomers(customers.map(c => c.customer_id === customer.customer_id ? { ...c, customer_rounding: e.target.value } : c))}
+                          className="w-full p-1 border rounded"
+                        >
+                          <option>四捨五入</option>
+                          <option>切上げ</option>
+                          <option>切捨て</option>
+                        </select>
+                      ) : (
+                        customer.customer_rounding
+                      )}
+                    </td>
+                    <td className="py-1 px-4 text-left border border-gray-300 text-sm whitespace-nowrap">
+                      {customer.isEditing ? (
+                        <input
+                          type="text"
+                          value={customer.customer_closingDay}
+                          onChange={(e) => setCustomers(customers.map(c => c.customer_id === customer.customer_id ? { ...c, customer_closingDay: e.target.value } : c))}
+                          className="w-full p-1 border rounded"
+                        />
+                      ) : (
+                        customer.customer_closingDay
+                      )}
+                    </td>
+                    <td className="py-1 px-4 text-left border border-gray-300 text-sm whitespace-nowrap">
+                      {customer.isEditing ? (
+                        <input
+                          type="text"
+                          value={customer.customer_paymentTerms}
+                          onChange={(e) => setCustomers(customers.map(c => c.customer_id === customer.customer_id ? { ...c, customer_paymentTerms: e.target.value } : c))}
+                          className="w-full p-1 border rounded"
+                        />
+                      ) : (
+                        customer.customer_paymentTerms
+                      )}
+                    </td>
+                    <td className="py-1 px-4 text-left border border-gray-300 text-sm whitespace-nowrap">
+                      {customer.isEditing ? (
+                        <input
+                          type="text"
+                          value={customer.invoiceDeliveryMethod}
+                          onChange={(e) => setCustomers(customers.map(c => c.customer_id === customer.customer_id ? { ...c, invoiceDeliveryMethod: e.target.value } : c))}
+                          className="w-full p-1 border rounded"
+                        />
+                      ) : (
+                        customer.invoiceDeliveryMethod
+                      )}
+                    </td>
+                    <td className="py-1 px-4 text-center border border-gray-300 text-sm">
+                      {customer.isEditing ? (
+                        <>
+                          <button
+                            onClick={() => handleSave(customer)}
+                            className="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded text-xs mr-1"
+                          >
+                            保存
+                          </button>
+                          <button
+                            onClick={() => handleCancel(customer.customer_id)}
+                            className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-1 px-2 rounded text-xs"
+                          >
+                            キャンセル
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          onClick={() => handleEdit(customer.customer_id)}
+                          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded text-xs"
+                        >
+                          編集
+                        </button>
+                      )}
+                    </td>
+                    <td className="py-1 px-4 text-center border border-gray-300 text-sm">
+                      {!customer.isEditing && (
+                        <button
+                          onClick={() => handleDelete(customer.customer_id)}
+                          className="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded text-xs"
+                        >
+                          削除
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

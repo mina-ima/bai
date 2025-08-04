@@ -89,12 +89,12 @@ export default function CompanyInfoPage() {
 
   return (
     <AuthenticatedLayout>
-      <div className="w-4/5 mx-auto p-8">
+      <div className="max-w-7xl mx-auto p-8">
         <h1 className="text-size-30 font-bold text-center mb-8">企業情報登録</h1>
         <form onSubmit={handleSubmit} className="bg-white shadow-md rounded-lg p-8 mb-8">
           {/* Row 1 */}
-          <div className="mb-4 flex space-x-4">
-            <div className="w-1/3 flex items-center">
+          <div className="mb-4 flex flex-wrap gap-4">
+            <div className="flex-1 min-w-[300px] flex items-center">
               <label className="text-gray-700 text-size-20 font-medium w-[140px] flex-shrink-0" htmlFor="company_name">
                 自社名：
               </label>
@@ -107,7 +107,7 @@ export default function CompanyInfoPage() {
                 onChange={handleChange}
               />
             </div>
-            <div className="w-1/3 flex items-center">
+            <div className="flex-1 min-w-[300px] flex items-center">
               <label className="text-gray-700 text-size-20 font-medium w-[140px] flex-shrink-0" htmlFor="company_contactPerson">
                 自社担当者：
               </label>
@@ -120,7 +120,7 @@ export default function CompanyInfoPage() {
                 onChange={handleChange}
               />
             </div>
-            <div className="w-1/3 flex items-center">
+            <div className="flex-1 min-w-[300px] flex items-center">
               <label className="text-gray-700 text-size-20 font-medium w-[220px] flex-shrink-0" htmlFor="company_invoiceNumber">
                 自社適格請求書番号：
               </label>
@@ -136,8 +136,8 @@ export default function CompanyInfoPage() {
           </div>
 
           {/* Row 2 */}
-          <div className="mb-4 flex space-x-4">
-            <div className="w-1/3 flex items-center">
+          <div className="mb-4 flex flex-wrap gap-4">
+            <div className="flex-1 min-w-[300px] flex items-center">
               <label className="text-gray-700 text-size-20 font-medium w-[140px] flex-shrink-0" htmlFor="company_postalCode">
                 自社〒：
               </label>
@@ -150,7 +150,7 @@ export default function CompanyInfoPage() {
                 onChange={handleChange}
               />
             </div>
-            <div className="w-2/3 flex items-center">
+            <div className="flex-1 min-w-[300px] flex items-center">
               <label className="text-gray-700 text-size-20 font-medium w-[140px] flex-shrink-0" htmlFor="company_address">
                 自社住所：
               </label>
@@ -166,8 +166,8 @@ export default function CompanyInfoPage() {
           </div>
 
           {/* Row 3 */}
-          <div className="mb-4 flex space-x-4">
-            <div className="w-1/3 flex items-center">
+          <div className="mb-4 flex flex-wrap gap-4">
+            <div className="flex-1 min-w-[300px] flex items-center">
               <label className="text-gray-700 text-size-20 font-medium w-[140px] flex-shrink-0" htmlFor="company_phone">
                 自社電話：
               </label>
@@ -180,7 +180,7 @@ export default function CompanyInfoPage() {
                 onChange={handleChange}
               />
             </div>
-            <div className="w-1/3 flex items-center">
+            <div className="flex-1 min-w-[300px] flex items-center">
               <label className="text-gray-700 text-size-20 font-medium w-[140px] flex-shrink-0" htmlFor="company_fax">
                 自社FAX：
               </label>
@@ -193,7 +193,7 @@ export default function CompanyInfoPage() {
                 onChange={handleChange}
               />
             </div>
-            <div className="w-1/3 flex items-center">
+            <div className="flex-1 min-w-[300px] flex items-center">
               <label className="text-gray-700 text-size-20 font-medium w-[140px] flex-shrink-0" htmlFor="company_mail">
                 自社Mail：
               </label>
@@ -209,8 +209,8 @@ export default function CompanyInfoPage() {
           </div>
 
           {/* Row 4 */}
-          <div className="mb-4 flex space-x-4">
-            <div className="w-1/3 flex items-center">
+          <div className="mb-4 flex flex-wrap gap-4">
+            <div className="flex-1 min-w-[300px] flex items-center">
               <label className="text-gray-700 text-size-20 font-medium w-[220px] flex-shrink-0" htmlFor="company_bankName">
                 自社口座（銀行名）：
               </label>
@@ -223,7 +223,7 @@ export default function CompanyInfoPage() {
                 onChange={handleChange}
               />
             </div>
-            <div className="w-1/3 flex items-center">
+            <div className="flex-1 min-w-[300px] flex items-center">
               <label className="text-gray-700 text-size-20 font-medium w-[220px] flex-shrink-0" htmlFor="company_bankBranch">
                 自社口座（支店名）：
               </label>
@@ -236,7 +236,7 @@ export default function CompanyInfoPage() {
                 onChange={handleChange}
               />
             </div>
-            <div className="w-1/3 flex items-center">
+            <div className="flex-1 min-w-[300px] flex items-center">
               <label className="text-gray-700 text-size-20 font-medium w-[220px] flex-shrink-0" htmlFor="company_bankType">
                 自社口座（口座種）：
               </label>
@@ -252,8 +252,8 @@ export default function CompanyInfoPage() {
           </div>
 
           {/* Row 5 */}
-          <div className="mb-4 flex space-x-4">
-            <div className="w-1/2 flex items-center">
+          <div className="mb-4 flex flex-wrap gap-4">
+            <div className="flex-1 min-w-[300px] flex items-center">
               <label className="text-gray-700 text-size-20 font-medium w-[220px] flex-shrink-0" htmlFor="company_bankNumber">
                 自社口座（口座番号）：
               </label>
@@ -266,7 +266,7 @@ export default function CompanyInfoPage() {
                 onChange={handleChange}
               />
             </div>
-            <div className="w-1/2 flex items-center">
+            <div className="flex-1 min-w-[300px] flex items-center">
               <label className="text-gray-700 text-size-20 font-medium w-[220px] flex-shrink-0" htmlFor="company_bankHolder">
                 自社口座（口座名義）：
               </label>

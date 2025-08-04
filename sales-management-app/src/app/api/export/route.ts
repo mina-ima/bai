@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { promises as fs } from 'fs';
 import path from 'path';
+import iconv from 'iconv-lite';
 
 // データファイルのパスを定義
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -17,6 +18,37 @@ async function readDataFile(dataType: string): Promise<any[] | null> {
     if (error.code === 'ENOENT') return null; // ファイルが存在しない場合はnullを返す
     throw error;
   }
+}
+
+// JSONをCSVに変換するヘルパー関数
+function convertToCSV(data: any[]): string {
+  if (!data || data.length === 0) {
+    return '';
+  }
+
+  const allKeys = data.reduce((keys, obj) => {
+    Object.keys(obj).forEach(key => {
+      if (!keys.includes(key)) {
+        keys.push(key);
+      }
+    });
+    return keys;
+  }, [] as string[]);
+
+  const csvHeader = allKeys.join(',');
+
+  const csvBody = data.map(row => {
+    return allKeys.map(header => {
+      const value = row[header];
+      const strValue = String(value ?? '');
+      if (/[,"\n]/.test(strValue)) {
+        return `"${strValue.replace(/"/g, '""')}"`;
+      }
+      return strValue;
+    }).join(',');
+  }).join('\n');
+
+  return `${csvHeader}\n${csvBody}`;
 }
 
 export async function GET(request: Request) {
@@ -43,10 +75,19 @@ export async function GET(request: Request) {
       }
     });
 
-    return NextResponse.json(data);
+    const csv = convertToCSV(data);
+    const sjisCsv = iconv.encode(csv, 'Shift_JIS');
+
+    return new NextResponse(sjisCsv, {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/csv; charset=shift_jis',
+        'Content-Disposition': `attachment; filename="${dataType}.csv"`,
+      },
+    });
 
   } catch (error) {
-    console.error('Data fetch failed:', error);
-    return NextResponse.json({ error: 'データの取得に失敗しました。' }, { status: 500 });
+    console.error('Export failed:', error);
+    return NextResponse.json({ error: 'エクスポートに失敗しました。' }, { status: 500 });
   }
 }

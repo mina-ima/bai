@@ -1,9 +1,44 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { v4 as uuidv4 } from 'uuid';
 
 const customersFilePath = path.join(process.cwd(), 'data', 'customer_list.json');
+
+interface Customer {
+  customer_id: string;
+  // 他のプロパティもここに追加
+}
+
+async function getNextCustomerId(): Promise<string> {
+  let customers: Customer[] = [];
+  try {
+    const customersData = fs.readFileSync(customersFilePath, 'utf-8');
+    customers = JSON.parse(customersData);
+  } catch (error: any) {
+    if (error.code === 'ENOENT') {
+      // ファイルが存在しない場合は空のリストとして扱う
+      customers = [];
+    } else {
+      throw error;
+    }
+  }
+
+  let maxIdNum = 0;
+  customers.forEach(customer => {
+    const idMatch = customer.customer_id.match(/^C(\d{6})$/);
+    if (idMatch) {
+      const idNum = parseInt(idMatch[1], 10);
+      if (!isNaN(idNum) && idNum > maxIdNum) {
+        maxIdNum = idNum;
+      }
+    }
+  });
+
+  const nextIdNum = maxIdNum + 1;
+  // 6桁のゼロ埋め
+  const nextId = `C${String(nextIdNum).padStart(6, '0')}`;
+  return nextId;
+}
 
 export async function GET() {
   try {
@@ -23,7 +58,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const newCustomer = await req.json();
-    newCustomer.customer_id = uuidv4(); // 自動付番
+    newCustomer.customer_id = await getNextCustomerId(); // 新しいIDを生成
 
     const customersData = fs.readFileSync(customersFilePath, 'utf-8');
     const customers = JSON.parse(customersData);

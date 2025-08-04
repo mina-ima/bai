@@ -1,16 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Product } from '@/types/product';
 import AuthenticatedLayout from '@/components/AuthenticatedLayout';
 
-interface Customer {
-  customer_id: string;
-  customer_name: string;
+interface EditableProduct extends Product {
+  isEditing?: boolean;
 }
 
 export default function ProductsPage() {
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<EditableProduct[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]); // 取引先リスト
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -64,7 +62,7 @@ export default function ProductsPage() {
     const { name, value } = e.target;
     setNewProduct((prev) => ({
       ...prev,
-      [name]: name === 'product_tax' || name === 'product_unitPrice' ? parseInt(value) : value,
+      [name]: name === 'product_tax' || name === 'product_unitPrice' ? parseFloat(value) : value,
     }));
   };
 
@@ -115,18 +113,51 @@ export default function ProductsPage() {
     }
   };
 
+  const handleEdit = (productId: string) => {
+    setProducts(products.map(product =>
+      product.product_id === productId ? { ...product, isEditing: true } : product
+    ));
+  };
+
+  const handleSave = async (productToSave: Product & { isEditing?: boolean }) => {
+    try {
+      const response = await fetch(`/api/products/${productToSave.product_id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(productToSave),
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      setProducts(products.map(product =>
+        product.product_id === productToSave.product_id ? { ...productToSave, isEditing: false } : product
+      ));
+    } catch (e: any) {
+      setError(e.message);
+    }
+  };
+
+  const handleCancel = (productId: string) => {
+    setProducts(products.map(product =>
+      product.product_id === productId ? { ...product, isEditing: false } : product
+    ));
+    fetchProducts(); // 元のデータを再取得してリセット
+  };
+
   if (loading) return <p>Loading products...</p>;
   if (error) return <p>Error: {error}</p>;
 
   return (
     <AuthenticatedLayout>
-      <div className="w-4/5 mx-auto p-8">
+      <div className="max-w-7xl mx-auto p-8">
         <h1 className="text-size-30 font-bold text-center">商品登録</h1>
-        <form onSubmit={handleSubmit} className="bg-white shadow-md rounded-lg p-8 mb-8">
+        <form onSubmit={handleSubmit} onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }} className="bg-white shadow-md rounded-lg p-8 mb-8">
           {/* Row 1: Customer & Product Name */}
-          <div className="mb-2 flex space-x-4">
-            <div className="w-1/2 flex items-center">
-              <label className="text-gray-700 text-size-20 font-medium w-[120px] flex-shrink-0" htmlFor="customer_name">
+          <div className="mb-2 flex flex-wrap gap-4">
+            <div className="flex-1 min-w-[300px] flex items-center gap-2">
+              <label className="text-gray-700 text-size-20 font-medium w-[140px] flex-shrink-0" htmlFor="customer_name">
                 取引先名：
               </label>
               <select
@@ -145,8 +176,8 @@ export default function ProductsPage() {
                 ))}
               </select>
             </div>
-            <div className="w-1/2 flex items-center">
-              <label className="text-gray-700 text-size-20 font-medium w-[120px] flex-shrink-0" htmlFor="product_name">
+            <div className="flex-1 min-w-[300px] flex items-center gap-2">
+              <label className="text-gray-700 text-size-20 font-medium w-[140px] flex-shrink-0" htmlFor="product_name">
                 商品名：
               </label>
               <input
@@ -162,9 +193,9 @@ export default function ProductsPage() {
           </div>
 
           {/* Row 2: Postal Code & Shipping Name */}
-          <div className="mb-2 flex space-x-4">
-            <div className="w-1/2 flex items-center">
-              <label className="text-gray-700 text-size-20 font-medium w-[120px] flex-shrink-0" htmlFor="product_shippingPostalcode">
+          <div className="mb-2 flex flex-wrap gap-4">
+            <div className="flex-1 min-w-[300px] flex items-center gap-2">
+              <label className="text-gray-700 text-size-20 font-medium w-[140px] flex-shrink-0" htmlFor="product_shippingPostalcode">
                 発送先〒：
               </label>
               <input
@@ -176,8 +207,8 @@ export default function ProductsPage() {
                 onChange={handleChange}
               />
             </div>
-            <div className="w-1/2 flex items-center">
-              <label className="text-gray-700 text-size-20 font-medium w-[120px] flex-shrink-0" htmlFor="product_shippingName">
+            <div className="flex-1 min-w-[300px] flex items-center gap-2">
+              <label className="text-gray-700 text-size-20 font-medium w-[140px] flex-shrink-0" htmlFor="product_shippingName">
                 発送先名：
               </label>
               <input
@@ -192,7 +223,7 @@ export default function ProductsPage() {
           </div>
 
           {/* Row 3: Shipping Address (Full Width) */}
-          <div className="mb-2 flex items-center">
+          <div className="mb-2 flex flex-wrap items-center gap-4">
             <label className="text-gray-700 text-size-20 font-medium w-[120px] flex-shrink-0" htmlFor="product_shippingAddress">
               発送先住所：
             </label>
@@ -207,66 +238,74 @@ export default function ProductsPage() {
           </div>
 
           {/* Row 4: Phone, Unit, Price, Tax */}
-          <div className="mb-2 flex space-x-4">
-            <div className="w-[40%] flex items-center">
-              <label className="text-gray-700 text-size-20 font-medium w-[120px] flex-shrink-0" htmlFor="product_shippingPhone">
+          <div className="flex flex-col md:flex-row gap-4 mb-4">
+            {/* Shipping Phone */}
+            <div className="flex-1">
+              <label htmlFor="product_shippingPhone" className="block text-gray-700 text-size-20 font-medium mb-2">
                 発送先電話：
               </label>
               <input
-                className="flex-grow p-3 border border-gray-300 rounded-md text-size-20 focus:outline-none focus:ring-2 focus:ring-blue-500 h-12"
                 id="product_shippingPhone"
                 type="text"
                 name="product_shippingPhone"
                 value={newProduct.product_shippingPhone}
                 onChange={handleChange}
+                className="w-full p-3 border border-gray-300 rounded-md text-size-20 focus:outline-none focus:ring-2 focus:ring-blue-500 h-12"
               />
             </div>
-            <div className="w-[20%] flex items-center">
-              <label className="text-gray-700 text-size-20 font-medium w-[120px] flex-shrink-0" htmlFor="product_unit">
+
+            {/* Unit */}
+            <div className="flex-1">
+              <label htmlFor="product_unit" className="block text-gray-700 text-size-20 font-medium mb-2">
                 単位：
               </label>
               <input
-                className="flex-grow p-3 border border-gray-300 rounded-md text-size-20 focus:outline-none focus:ring-2 focus:ring-blue-500 h-12"
                 id="product_unit"
                 type="text"
                 name="product_unit"
                 value={newProduct.product_unit}
                 onChange={handleChange}
                 required
+                className="w-full p-3 border border-gray-300 rounded-md text-size-20 focus:outline-none focus:ring-2 focus:ring-blue-500 h-12"
               />
             </div>
-            <div className="w-[20%] flex items-center">
-              <label className="text-gray-700 text-size-20 font-medium w-[120px] flex-shrink-0" htmlFor="product_unitPrice">
+
+            {/* Unit Price */}
+            <div className="flex-1">
+              <label htmlFor="product_unitPrice" className="block text-gray-700 text-size-20 font-medium mb-2">
                 単価：
               </label>
               <input
-                className="flex-grow p-3 border border-gray-300 rounded-md text-size-20 focus:outline-none focus:ring-2 focus:ring-blue-500 h-12"
                 id="product_unitPrice"
                 type="number"
+                step="any"
                 name="product_unitPrice"
                 value={newProduct.product_unitPrice}
                 onChange={handleChange}
                 required
+                className="w-full p-3 border border-gray-300 rounded-md text-size-20 focus:outline-none focus:ring-2 focus:ring-blue-500 h-12"
               />
             </div>
-            <div className="w-[20%] flex items-center">
-              <label className="text-gray-700 text-size-20 font-medium w-[120px] flex-shrink-0" htmlFor="product_tax">
+
+            {/* Tax */}
+            <div className="flex-1">
+              <label htmlFor="product_tax" className="block text-gray-700 text-size-20 font-medium mb-2">
                 税区分：
               </label>
               <input
-                className="flex-grow p-3 border border-gray-300 rounded-md text-size-20 focus:outline-none focus:ring-2 focus:ring-blue-500 h-12"
                 id="product_tax"
                 type="number"
                 name="product_tax"
                 value={newProduct.product_tax}
                 onChange={handleChange}
                 required
+                className="w-full p-3 border border-gray-300 rounded-md text-size-20 focus:outline-none focus:ring-2 focus:ring-blue-500 h-12"
               />
             </div>
           </div>
 
           {/* Row 5: Notes (Full Width) */}
-          <div className="mb-2 flex items-center">
+          <div className="mb-2 flex flex-wrap items-center gap-4">
             <label className="text-gray-700 text-size-20 font-medium w-[120px] flex-shrink-0" htmlFor="product_note">
               商品備考：
             </label>
@@ -292,40 +331,168 @@ export default function ProductsPage() {
         <h2 className="text-size-30 font-bold text-center mt-[50px]">商品リスト</h2>
         <div className="mt-8">
           <div className="overflow-x-auto">
-            <table className="min-w-full border-collapse border-[3px] border-blue-600">
+            <table className="min-w-full border-collapse border border-gray-300">
               <thead>
-                <tr>
-                  <th className="py-3 px-4 bg-blue-600 text-white font-bold uppercase text-sm text-left border-[3px] border-blue-600">商品名</th>
-                  <th className="py-3 px-4 bg-blue-600 text-white font-bold uppercase text-sm text-left border-[3px] border-blue-600">単価</th>
-                  <th className="py-3 px-4 bg-blue-600 text-white font-bold uppercase text-sm text-left border-[3px] border-blue-600">単位</th>
-                  <th className="py-3 px-4 bg-blue-600 text-white font-bold uppercase text-sm text-left border-[3px] border-blue-600">税</th>
-                  <th className="py-3 px-4 bg-blue-600 text-white font-bold uppercase text-sm text-left border-[3px] border-blue-600">発送先名</th>
-                  <th className="py-3 px-4 bg-blue-600 text-white font-bold uppercase text-sm text-left border-[3px] border-blue-600">発送先〒</th>
-                  <th className="py-3 px-4 bg-blue-600 text-white font-bold uppercase text-sm text-left border-[3px] border-blue-600">発送先住所</th>
-                  <th className="py-3 px-4 bg-blue-600 text-white font-bold uppercase text-sm text-left border-[3px] border-blue-600">発送先電話</th>
-                  <th className="py-3 px-4 bg-blue-600 text-white font-bold uppercase text-sm text-left border-[3px] border-blue-600">備考</th>
-                  <th className="py-3 px-4 bg-blue-600 text-white font-bold uppercase text-sm text-center border-[3px] border-blue-600">操作</th>
+                <tr className="bg-blue-600">
+                  <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">商品名</th>
+                  <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">単価</th>
+                  <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">単位</th>
+                  <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">税</th>
+                  <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">発送先名</th>
+                  <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">発送先〒</th>
+                  <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">発送先住所</th>
+                  <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">発送先電話</th>
+                  <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">備考</th>
+                  <th className="py-2 px-4 text-white font-bold text-sm text-center border border-gray-300 whitespace-nowrap">編集</th>
+                  <th className="py-2 px-4 text-white font-bold text-sm text-center border border-gray-300 whitespace-nowrap">削除</th>
                 </tr>
               </thead>
               <tbody>
                 {products.map((product) => (
-                  <tr key={product.product_id} className="even:bg-gray-50 hover:bg-gray-100">
-                    <td className="py-2 px-4 text-left border-[3px] border-blue-600 text-sm">{product.product_name}</td>
-                    <td className="py-2 px-4 text-right border-[3px] border-blue-600 text-sm">{product.product_unitPrice}</td>
-                    <td className="py-2 px-4 text-left border-[3px] border-blue-600 text-sm">{product.product_unit}</td>
-                    <td className="py-2 px-4 text-right border-[3px] border-blue-600 text-sm">{product.product_tax}</td>
-                    <td className="py-2 px-4 text-left border-[3px] border-blue-600 text-sm">{product.product_shippingName}</td>
-                    <td className="py-2 px-4 text-left border-[3px] border-blue-600 text-sm">{product.product_shippingPostalcode}</td>
-                    <td className="py-2 px-4 text-left border-[3px] border-blue-600 text-sm">{product.product_shippingAddress}</td>
-                    <td className="py-2 px-4 text-left border-[3px] border-blue-600 text-sm">{product.product_shippingPhone}</td>
-                    <td className="py-2 px-4 text-left border-[3px] border-blue-600 text-sm">{product.product_note}</td>
-                    <td className="py-2 px-4 text-center border-[3px] border-blue-600 text-sm">
-                      <button
-                        onClick={() => handleDelete(product.product_id)}
-                        className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
-                      >
-                        削除
-                      </button>
+                  <tr key={product.product_id} className="even:bg-gray-100">
+                    <td className="py-1 px-4 text-left border border-gray-300 text-sm whitespace-nowrap">
+                      {product.isEditing ? (
+                        <input
+                          type="text"
+                          value={product.product_name}
+                          onChange={(e) => setProducts(products.map(p => p.product_id === product.product_id ? { ...p, product_name: e.target.value } : p))}
+                          className="w-full p-1 border rounded"
+                        />
+                      ) : (
+                        product.product_name
+                      )}
+                    </td>
+                    <td className="py-1 px-4 text-right border border-gray-300 text-sm whitespace-nowrap">
+                      {product.isEditing ? (
+                        <input
+                          type="number"
+                          step="any"
+                          value={product.product_unitPrice}
+                          onChange={(e) => setProducts(products.map(p => p.product_id === product.product_id ? { ...p, product_unitPrice: parseFloat(e.target.value) } : p))}
+                          className="w-full p-1 border rounded"
+                        />
+                      ) : (
+                        product.product_unitPrice
+                      )}
+                    </td>
+                    <td className="py-1 px-4 text-left border border-gray-300 text-sm whitespace-nowrap">
+                      {product.isEditing ? (
+                        <input
+                          type="text"
+                          value={product.product_unit}
+                          onChange={(e) => setProducts(products.map(p => p.product_id === product.product_id ? { ...p, product_unit: e.target.value } : p))}
+                          className="w-full p-1 border rounded"
+                        />
+                      ) : (
+                        product.product_unit
+                      )}
+                    </td>
+                    <td className="py-1 px-4 text-right border border-gray-300 text-sm whitespace-nowrap">
+                      {product.isEditing ? (
+                        <input
+                          type="number"
+                          value={product.product_tax}
+                          onChange={(e) => setProducts(products.map(p => p.product_id === product.product_id ? { ...p, product_tax: parseInt(e.target.value) } : p))}
+                          className="w-full p-1 border rounded"
+                        />
+                      ) : (
+                        product.product_tax
+                      )}
+                    </td>
+                    <td className="py-1 px-4 text-left border border-gray-300 text-sm whitespace-nowrap">
+                      {product.isEditing ? (
+                        <input
+                          type="text"
+                          value={product.product_shippingName}
+                          onChange={(e) => setProducts(products.map(p => p.product_id === product.product_id ? { ...p, product_shippingName: e.target.value } : p))}
+                          className="w-full p-1 border rounded"
+                        />
+                      ) : (
+                        product.product_shippingName
+                      )}
+                    </td>
+                    <td className="py-1 px-4 text-left border border-gray-300 text-sm whitespace-nowrap">
+                      {product.isEditing ? (
+                        <input
+                          type="text"
+                          value={product.product_shippingPostalcode}
+                          onChange={(e) => setProducts(products.map(p => p.product_id === product.product_id ? { ...p, product_shippingPostalcode: e.target.value } : p))}
+                          className="w-full p-1 border rounded"
+                        />
+                      ) : (
+                        product.product_shippingPostalcode
+                      )}
+                    </td>
+                    <td className="py-1 px-4 text-left border border-gray-300 text-sm whitespace-nowrap">
+                      {product.isEditing ? (
+                        <input
+                          type="text"
+                          value={product.product_shippingAddress}
+                          onChange={(e) => setProducts(products.map(p => p.product_id === product.product_id ? { ...p, product_shippingAddress: e.target.value } : p))}
+                          className="w-full p-1 border rounded"
+                        />
+                      ) : (
+                        product.product_shippingAddress
+                      )}
+                    </td>
+                    <td className="py-1 px-4 text-left border border-gray-300 text-sm whitespace-nowrap">
+                      {product.isEditing ? (
+                        <input
+                          type="text"
+                          value={product.product_shippingPhone}
+                          onChange={(e) => setProducts(products.map(p => p.product_id === product.product_id ? { ...p, product_shippingPhone: e.target.value } : p))}
+                          className="w-full p-1 border rounded"
+                        />
+                      ) : (
+                        product.product_shippingPhone
+                      )}
+                    </td>
+                    <td className="py-1 px-4 text-left border border-gray-300 text-sm whitespace-nowrap">
+                      {product.isEditing ? (
+                        <textarea
+                          value={product.product_note}
+                          onChange={(e) => setProducts(products.map(p => p.product_id === product.product_id ? { ...p, product_note: e.target.value } : p))}
+                          className="w-full p-1 border rounded h-auto"
+                          rows={3}
+                        />
+                      ) : (
+                        product.product_note
+                      )}
+                    </td>
+                    <td className="py-1 px-4 text-center border border-gray-300 text-sm">
+                      {product.isEditing ? (
+                        <>
+                          <button
+                            onClick={() => handleSave(product)}
+                            className="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded text-xs mr-1"
+                          >
+                            保存
+                          </button>
+                          <button
+                            onClick={() => handleCancel(product.product_id)}
+                            className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-1 px-2 rounded text-xs"
+                          >
+                            キャンセル
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          onClick={() => handleEdit(product.product_id)}
+                          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded text-xs"
+                        >
+                          編集
+                        </button>
+                      )}
+                    </td>
+                    <td className="py-1 px-4 text-center border border-gray-300 text-sm">
+                      {!product.isEditing && (
+                        <button
+                          onClick={() => handleDelete(product.product_id)}
+                          className="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded text-xs"
+                        >
+                          削除
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

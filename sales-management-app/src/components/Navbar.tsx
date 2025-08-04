@@ -27,7 +27,7 @@ export default function Navbar() {
         { href: '/invoices', title: '請求機能' },
         { href: '/master_registration', title: 'マスタ登録' },
         { href: '/company', title: '企業情報登録' },
-        { href: '/data-processing', title: 'データ処理' },
+        { href: '/data_processing', title: 'データ処理' },
         { href: '/users', title: 'ユーザー管理' },
     ];
 

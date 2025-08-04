@@ -31,7 +31,7 @@ export default function Home() {
     { href: '/invoices', color: '#28a745', title: '請求機能', description: '請求書作成・管理' },
     { href: '/master_registration', color: '#6f42c1', title: 'マスタ登録', description: '商品・取引先の登録・編集' },
     { href: '/company', color: '#fd7e14', title: '企業情報登録', description: '自社情報の登録・編集' },
-    { href: '/data-processing', color: '#6c757d', title: 'データ処理', description: 'CSVインポート・エクスポート' },
+    { href: '/data_processing', color: '#6c757d', title: 'データ処理', description: 'CSVインポート・エクスポート' },
     { href: '/users', color: '#17a2b8', title: 'ユーザー管理', description: 'ユーザーの登録・権限設定' },
   ];
 

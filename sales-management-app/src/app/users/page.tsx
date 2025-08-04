@@ -22,7 +22,7 @@ const UsersPage = () => {
       const response = await fetch('/api/users');
       if (response.ok) {
         const data = await response.json();
-        setUsers(data);
+        setUsers(Array.isArray(data) ? data : []);
         console.log('Users fetched successfully:', data); // デバッグ用ログ
       } else {
         console.error('Failed to fetch users. Status:', response.status); // デバッグ用ログ
@@ -93,7 +93,7 @@ const UsersPage = () => {
 
   return (
     <AuthenticatedLayout>
-      <div className="max-w-[1000px] mx-auto p-8">
+      <div className="w-4/5 mx-auto p-8">
         <h1 className="text-size-30 font-bold text-center">ユーザー登録</h1>
         <form onSubmit={handleRegister} className="bg-white shadow-md rounded-lg p-8 mb-8">
           <div className="mb-6 flex space-x-4">
