@@ -77,8 +77,9 @@ export async function GET(request: Request) {
 
     const csv = convertToCSV(data);
     const sjisCsv = iconv.encode(csv, 'Shift_JIS');
+    const uint8Array = new Uint8Array(sjisCsv);
 
-    return new NextResponse(sjisCsv, {
+    return new NextResponse(uint8Array, {
       status: 200,
       headers: {
         'Content-Type': 'text/csv; charset=shift_jis',

@@ -10,7 +10,6 @@ interface User {
 }
 
 interface EditableUser extends User {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   isEditing?: boolean;
   user_pass?: string; // パスワードリセット用
 }
@@ -105,7 +104,7 @@ const UsersPage = () => {
 
   const handleSave = async (userToSave: EditableUser) => {
     try {
-      const { isEditing, ...dataToSave } = userToSave; // isEditingを除外
+      const { isEditing: _isEditing, ...dataToSave } = userToSave; // eslint-disable-line @typescript-eslint/no-unused-vars
       const response = await fetch(`/api/users/${userToSave.user_id}`, {
         method: 'PUT',
         headers: {

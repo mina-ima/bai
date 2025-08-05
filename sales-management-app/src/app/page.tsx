@@ -27,7 +27,7 @@ const MenuButton = ({ href, color, title, description }: { href: string, color: 
 
 export default function Home() {
   const menuItems = [
-    { href: '/deliveries', color: '#007bff', title: '納品機能', description: '納品登録・検索・一覧' },
+    { href: '/delivery', color: '#007bff', title: '納品機能', description: '納品登録・検索・一覧' },
     { href: '/invoices', color: '#28a745', title: '請求機能', description: '請求書作成・管理' },
     { href: '/master_registration', color: '#6f42c1', title: 'マスタ登録', description: '商品・取引先の登録・編集' },
     { href: '/company', color: '#fd7e14', title: '企業情報登録', description: '自社情報の登録・編集' },
