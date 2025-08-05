@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs/promises';
 import path from 'path';
 import { parse } from 'csv-parse/sync';
-import { getNextProductId } from '@/app/api/products/route';
+import { getNextProductId } from '@/lib/productUtils';
 import iconv from 'iconv-lite';
 
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
       bom: true 
     });
 
-    let existingData = await readJsonFile(config.filePath);
+    const existingData = await readJsonFile(config.filePath);
 
     // 会社情報の場合は既存データを上書き
     if (dataType === 'company_info') {
@@ -72,17 +72,17 @@ export async function POST(req: NextRequest) {
       // データ型に応じて型変換を行う
       if (dataType === 'product_list') {
         record = {
-          ...record,
-          product_unitPrice: record.product_unitPrice ? parseFloat(record.product_unitPrice) : 0,
-          product_tax: record.product_tax ? parseInt(record.product_tax, 10) : 0,
+          ...(record as any),
+          product_unitPrice: (record as any).product_unitPrice ? parseFloat((record as any).product_unitPrice) : 0,
+          product_tax: (record as any).product_tax ? parseInt((record as any).product_tax, 10) : 0,
         };
       }
 
-      let id = record[config.idField];
+      let id = (record as any)[config.idField];
       if (!id) {
         if (dataType === 'product_list') {
           id = await getNextProductId();
-          record[config.idField] = id;
+          (record as any)[config.idField] = id;
         } else {
           console.warn(`Skipping record due to missing ID field (${config.idField}):`, record);
           continue;
@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
       const index = existingData.findIndex(item => item[config.idField] === id);
       if (index !== -1) {
         // 既存のレコードを更新
-        existingData[index] = { ...existingData[index], ...record };
+        existingData[index] = { ...existingData[index], ...(record as any) };
       } else {
         // 新しいレコードを追加
         existingData.push(record);

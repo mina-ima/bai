@@ -9,8 +9,14 @@ interface User {
   user_authority: string;
 }
 
+interface EditableUser extends User {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  isEditing?: boolean;
+  user_pass?: string; // パスワードリセット用
+}
+
 const UsersPage = () => {
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<EditableUser[]>([]);
   const [userId, setUserId] = useState('');
   const [userName, setUserName] = useState('');
   const [userPass, setUserPass] = useState('');
@@ -22,7 +28,7 @@ const UsersPage = () => {
       const response = await fetch('/api/users');
       if (response.ok) {
         const data = await response.json();
-        setUsers(Array.isArray(data) ? data : []);
+        setUsers(Array.isArray(data) ? data.map((user: User) => ({ ...user, isEditing: false })) : []);
         console.log('Users fetched successfully:', data); // デバッグ用ログ
       } else {
         console.error('Failed to fetch users. Status:', response.status); // デバッグ用ログ
@@ -89,6 +95,43 @@ const UsersPage = () => {
         alert('ユーザー削除中にエラーが発生しました。');
       }
     }
+  };
+
+  const handleEdit = (userId: string) => {
+    setUsers(users.map(user =>
+      user.user_id === userId ? { ...user, isEditing: true } : user
+    ));
+  };
+
+  const handleSave = async (userToSave: EditableUser) => {
+    try {
+      const { isEditing, ...dataToSave } = userToSave; // isEditingを除外
+      const response = await fetch(`/api/users/${userToSave.user_id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(dataToSave),
+      });
+      if (response.ok) {
+        alert('ユーザー情報が更新されました。');
+        setUsers(users.map(user =>
+          user.user_id === userToSave.user_id ? { ...userToSave, isEditing: false } : user
+        ));
+      } else {
+        alert('ユーザー情報の更新に失敗しました。');
+      }
+    } catch (error) {
+      console.error('Error saving user:', error);
+      alert('ユーザー情報の保存中にエラーが発生しました。');
+    }
+  };
+
+  const handleCancel = (userId: string) => {
+    setUsers(users.map(user =>
+      user.user_id === userId ? { ...user, isEditing: false } : user
+    ));
+    fetchUsers(); // 元のデータを再取得してリセット
   };
 
   return (
@@ -183,16 +226,78 @@ const UsersPage = () => {
               <tbody>
                 {users.map((user) => (
                   <tr key={user.user_id} className="even:bg-gray-50 hover:bg-gray-100">
-                    <td className="py-3 px-6 text-left border-[3px] border-blue-600 text-base">{user.user_id}</td>
-                    <td className="py-3 px-6 text-left border-[3px] border-blue-600 text-base">{user.user_name}</td>
-                    <td className="py-3 px-6 text-left border-[3px] border-blue-600 text-base">{user.user_authority}</td>
+                    <td className="py-3 px-6 text-left border-[3px] border-blue-600 text-base">
+                      {user.user_id}
+                    </td>
+                    <td className="py-3 px-6 text-left border-[3px] border-blue-600 text-base">
+                      {user.isEditing ? (
+                        <>
+                          <input
+                            type="text"
+                            value={user.user_name}
+                            onChange={(e) => setUsers(users.map(u => u.user_id === user.user_id ? { ...u, user_name: e.target.value } : u))}
+                            className="w-full p-1 border rounded mb-2"
+                          />
+                          <input
+                            type="password"
+                            placeholder="新しいパスワード (任意)"
+                            value={user.user_pass || ''}
+                            onChange={(e) => setUsers(users.map(u => u.user_id === user.user_id ? { ...u, user_pass: e.target.value } : u))}
+                            className="w-full p-1 border rounded"
+                          />
+                        </>
+                      ) : (
+                        user.user_name
+                      )}
+                    </td>
+                    <td className="py-3 px-6 text-left border-[3px] border-blue-600 text-base">
+                      {user.isEditing ? (
+                        <select
+                          value={user.user_authority}
+                          onChange={(e) => setUsers(users.map(u => u.user_id === user.user_id ? { ...u, user_authority: e.target.value } : u))}
+                          className="w-full p-1 border rounded"
+                        >
+                          <option>管理者</option>
+                          <option>一般</option>
+                          <option>納品</option>
+                          <option>閲覧</option>
+                        </select>
+                      ) : (
+                        user.user_authority
+                      )}
+                    </td>
                     <td className="py-3 px-6 text-left border-[3px] border-blue-600">
-                      <button
-                        className="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded text-xs"
-                        onClick={() => handleDelete(user.user_id)}
-                      >
-                        削除
-                      </button>
+                      {user.isEditing ? (
+                        <>
+                          <button
+                            onClick={() => handleSave(user)}
+                            className="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded text-xs mr-1"
+                          >
+                            保存
+                          </button>
+                          <button
+                            onClick={() => handleCancel(user.user_id)}
+                            className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-1 px-2 rounded text-xs"
+                          >
+                            キャンセル
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded text-xs mr-1"
+                            onClick={() => handleEdit(user.user_id)}
+                          >
+                            編集
+                          </button>
+                          <button
+                            className="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded text-xs"
+                            onClick={() => handleDelete(user.user_id)}
+                          >
+                            削除
+                          </button>
+                        </>
+                      )}
                     </td>
                   </tr>
                 ))}

@@ -5,8 +5,8 @@ import { Product } from '@/types/product';
 
 const productsFilePath = path.join(process.cwd(), 'data', 'product_list.json');
 
-export async function PUT(req: NextRequest, { params }: { params: { productId: string } }) {
-  const productId = params.productId;
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ productId: string }> }) {
+  const { productId } = await params;
   let updatedProductData: Partial<Product>;
   try {
     updatedProductData = await req.json();
@@ -47,9 +47,9 @@ export async function PUT(req: NextRequest, { params }: { params: { productId: s
   }
 }
 
-export async function DELETE(request: Request, { params }: { params: { productId: string } }) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ productId: string }> }) {
   try {
-    const productId = params.productId;
+    const { productId } = await params;
 
     if (!productId) {
       return NextResponse.json({ error: 'Product ID is required' }, { status: 400 });

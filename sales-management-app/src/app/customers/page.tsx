@@ -9,9 +9,13 @@ interface EditableCustomer extends Customer {
 }
 
 export default function CustomersPage() {
+  const [originalCustomers, setOriginalCustomers] = useState<EditableCustomer[]>([]);
   const [customers, setCustomers] = useState<EditableCustomer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [sortColumn, setSortColumn] = useState<keyof Customer | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [filters, setFilters] = useState<{[key: string]: string}>({});
   const [formData, setFormData] = useState<Omit<Customer, 'customer_id'>>({
     customer_name: '',
     customer_formalName: '',
@@ -33,6 +37,7 @@ export default function CustomersPage() {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       const data = await response.json();
+      setOriginalCustomers(data);
       setCustomers(data);
     } catch (e: any) {
       setError(e.message);
@@ -44,6 +49,48 @@ export default function CustomersPage() {
   useEffect(() => {
     fetchCustomers();
   }, []);
+
+  useEffect(() => {
+    let currentCustomers = [...originalCustomers];
+
+    // Filtering
+    currentCustomers = currentCustomers.filter(customer => {
+      return Object.entries(filters).every(([column, filterValue]) => {
+        const customerValue = String(customer[column as keyof Customer]).toLowerCase();
+        return customerValue.includes(filterValue.toLowerCase());
+      });
+    });
+
+    // Sorting
+    if (sortColumn) {
+      currentCustomers.sort((a, b) => {
+        const aValue = a[sortColumn];
+        const bValue = b[sortColumn];
+
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+          return sortDirection === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
+        } else if (typeof aValue === 'number' && typeof bValue === 'number') {
+          return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+        } else {
+          return 0;
+        }
+      });
+    }
+    setCustomers(currentCustomers);
+  }, [originalCustomers, sortColumn, sortDirection, filters]);
+
+  const handleSort = (column: keyof Customer) => {
+    const isAsc = sortColumn === column && sortDirection === 'asc';
+    setSortDirection(isAsc ? 'desc' : 'asc');
+    setSortColumn(column);
+  };
+
+  const handleFilterChange = (column: keyof Customer, value: string) => {
+    setFilters(prevFilters => ({
+      ...prevFilters,
+      [column]: value,
+    }));
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -324,25 +371,186 @@ export default function CustomersPage() {
             <table className="min-w-full border-collapse border border-gray-300">
               <thead>
                 <tr className="bg-blue-600">
-                  <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">取引先名</th>
-                  <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">正式名称</th>
-                  <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">郵便番号</th>
-                  <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">住所</th>
-                  <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">電話番号</th>
-                  <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">メール</th>
-                  <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">担当者</th>
-                  <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">端数処理</th>
-                  <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">締日</th>
-                  <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">支払条件</th>
-                  <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">請求書発送方法</th>
+                  <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap cursor-pointer" onClick={() => handleSort('customer_name')}>
+                    取引先名
+                    {sortColumn === 'customer_name' && (
+                      <span>{sortDirection === 'asc' ? ' ▲' : ' ▼'}</span>
+                    )}
+                  </th>
+                  <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap cursor-pointer" onClick={() => handleSort('customer_formalName')}>
+                    正式名称
+                    {sortColumn === 'customer_formalName' && (
+                      <span>{sortDirection === 'asc' ? ' ▲' : ' ▼'}</span>
+                    )}
+                  </th>
+                  <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap cursor-pointer" onClick={() => handleSort('customer_postalCode')}>
+                    郵便番号
+                    {sortColumn === 'customer_postalCode' && (
+                      <span>{sortDirection === 'asc' ? ' ▲' : ' ▼'}</span>
+                    )}
+                  </th>
+                  <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap cursor-pointer" onClick={() => handleSort('customer_address')}>
+                    住所
+                    {sortColumn === 'customer_address' && (
+                      <span>{sortDirection === 'asc' ? ' ▲' : ' ▼'}</span>
+                    )}
+                  </th>
+                  <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap cursor-pointer" onClick={() => handleSort('customer_phone')}>
+                    電話番号
+                    {sortColumn === 'customer_phone' && (
+                      <span>{sortDirection === 'asc' ? ' ▲' : ' ▼'}</span>
+                    )}
+                  </th>
+                  <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap cursor-pointer" onClick={() => handleSort('customer_mail')}>
+                    メール
+                    {sortColumn === 'customer_mail' && (
+                      <span>{sortDirection === 'asc' ? ' ▲' : ' ▼'}</span>
+                    )}
+                  </th>
+                  <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap cursor-pointer" onClick={() => handleSort('customer_contactPerson')}>
+                    担当者
+                    {sortColumn === 'customer_contactPerson' && (
+                      <span>{sortDirection === 'asc' ? ' ▲' : ' ▼'}</span>
+                    )}
+                  </th>
+                  <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap cursor-pointer" onClick={() => handleSort('customer_rounding')}>
+                    端数処理
+                    {sortColumn === 'customer_rounding' && (
+                      <span>{sortDirection === 'asc' ? ' ▲' : ' ▼'}</span>
+                    )}
+                  </th>
+                  <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap cursor-pointer" onClick={() => handleSort('customer_closingDay')}>
+                    締日
+                    {sortColumn === 'customer_closingDay' && (
+                      <span>{sortDirection === 'asc' ? ' ▲' : ' ▼'}</span>
+                    )}
+                  </th>
+                  <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap cursor-pointer" onClick={() => handleSort('customer_paymentTerms')}>
+                    支払条件
+                    {sortColumn === 'customer_paymentTerms' && (
+                      <span>{sortDirection === 'asc' ? ' ▲' : ' ▼'}</span>
+                    )}
+                  </th>
+                  <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap cursor-pointer" onClick={() => handleSort('invoiceDeliveryMethod')}>
+                    請求書発送方法
+                    {sortColumn === 'invoiceDeliveryMethod' && (
+                      <span>{sortDirection === 'asc' ? ' ▲' : ' ▼'}</span>
+                    )}
+                  </th>
                   <th className="py-2 px-4 text-white font-bold text-sm text-center border border-gray-300 whitespace-nowrap">編集</th>
                   <th className="py-2 px-4 text-white font-bold text-sm text-center border border-gray-300 whitespace-nowrap">削除</th>
+                </tr>
+                <tr className="bg-blue-500">
+                  <th className="py-1 px-4 text-white text-xs border border-gray-300">
+                    <input
+                      type="text"
+                      placeholder="絞り込み"
+                      value={filters.customer_name || ''}
+                      onChange={(e) => handleFilterChange('customer_name', e.target.value)}
+                      className="mt-1 p-1 w-full text-black rounded text-xs"
+                    />
+                  </th>
+                  <th className="py-1 px-4 text-white text-xs border border-gray-300">
+                    <input
+                      type="text"
+                      placeholder="絞り込み"
+                      value={filters.customer_formalName || ''}
+                      onChange={(e) => handleFilterChange('customer_formalName', e.target.value)}
+                      className="mt-1 p-1 w-full text-black rounded text-xs"
+                    />
+                  </th>
+                  <th className="py-1 px-4 text-white text-xs border border-gray-300">
+                    <input
+                      type="text"
+                      placeholder="絞り込み"
+                      value={filters.customer_postalCode || ''}
+                      onChange={(e) => handleFilterChange('customer_postalCode', e.target.value)}
+                      className="mt-1 p-1 w-full text-black rounded text-xs"
+                    />
+                  </th>
+                  <th className="py-1 px-4 text-white text-xs border border-gray-300">
+                    <input
+                      type="text"
+                      placeholder="絞り込み"
+                      value={filters.customer_address || ''}
+                      onChange={(e) => handleFilterChange('customer_address', e.target.value)}
+                      className="mt-1 p-1 w-full text-black rounded text-xs"
+                    />
+                  </th>
+                  <th className="py-1 px-4 text-white text-xs border border-gray-300">
+                    <input
+                      type="text"
+                      placeholder="絞り込み"
+                      value={filters.customer_phone || ''}
+                      onChange={(e) => handleFilterChange('customer_phone', e.target.value)}
+                      className="mt-1 p-1 w-full text-black rounded text-xs"
+                    />
+                  </th>
+                  <th className="py-1 px-4 text-white text-xs border border-gray-300">
+                    <input
+                      type="text"
+                      placeholder="絞り込み"
+                      value={filters.customer_mail || ''}
+                      onChange={(e) => handleFilterChange('customer_mail', e.target.value)}
+                      className="mt-1 p-1 w-full text-black rounded text-xs"
+                    />
+                  </th>
+                  <th className="py-1 px-4 text-white text-xs border border-gray-300">
+                    <input
+                      type="text"
+                      placeholder="絞り込み"
+                      value={filters.customer_contactPerson || ''}
+                      onChange={(e) => handleFilterChange('customer_contactPerson', e.target.value)}
+                      className="mt-1 p-1 w-full text-black rounded text-xs"
+                    />
+                  </th>
+                  <th className="py-1 px-4 text-white text-xs border border-gray-300">
+                    <select
+                      value={filters.customer_rounding || ''}
+                      onChange={(e) => handleFilterChange('customer_rounding', e.target.value)}
+                      className="mt-1 p-1 w-full text-black rounded text-xs"
+                    >
+                      <option value="">全て</option>
+                      <option>四捨五入</option>
+                      <option>切上げ</option>
+                      <option>切捨て</option>
+                    </select>
+                  </th>
+                  <th className="py-1 px-4 text-white text-xs border border-gray-300">
+                    <input
+                      type="text"
+                      placeholder="絞り込み"
+                      value={filters.customer_closingDay || ''}
+                      onChange={(e) => handleFilterChange('customer_closingDay', e.target.value)}
+                      className="mt-1 p-1 w-full text-black rounded text-xs"
+                    />
+                  </th>
+                  <th className="py-1 px-4 text-white text-xs border border-gray-300">
+                    <input
+                      type="text"
+                      placeholder="絞り込み"
+                      value={filters.customer_paymentTerms || ''}
+                      onChange={(e) => handleFilterChange('customer_paymentTerms', e.target.value)}
+                      className="mt-1 p-1 w-full text-black rounded text-xs"
+                    />
+                  </th>
+                  <th className="py-1 px-4 text-white text-xs border border-gray-300">
+                    <input
+                      type="text"
+                      placeholder="絞り込み"
+                      value={filters.invoiceDeliveryMethod || ''}
+                      onChange={(e) => handleFilterChange('invoiceDeliveryMethod', e.target.value)}
+                      className="mt-1 p-1 w-full text-black rounded text-xs"
+                    />
+                  </th>
+                  <th className="py-1 px-4 text-white text-xs border border-gray-300"></th>
+                  <th className="py-1 px-4 text-white text-xs border border-gray-300"></th>
                 </tr>
               </thead>
               <tbody>
                 {customers.map((customer) => (
                   <tr key={customer.customer_id} className="even:bg-gray-100">
-                    <td className="py-1 px-4 text-left border border-gray-300 text-sm whitespace-nowrap">
+                    <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">
                       {customer.isEditing ? (
                         <input
                           type="text"
@@ -354,7 +562,7 @@ export default function CustomersPage() {
                         customer.customer_name
                       )}
                     </td>
-                    <td className="py-1 px-4 text-left border border-gray-300 text-sm whitespace-nowrap">
+                    <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">
                       {customer.isEditing ? (
                         <input
                           type="text"
@@ -366,7 +574,7 @@ export default function CustomersPage() {
                         customer.customer_formalName
                       )}
                     </td>
-                    <td className="py-1 px-4 text-left border border-gray-300 text-sm whitespace-nowrap">
+                    <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">
                       {customer.isEditing ? (
                         <input
                           type="text"
@@ -378,7 +586,7 @@ export default function CustomersPage() {
                         customer.customer_postalCode
                       )}
                     </td>
-                    <td className="py-1 px-4 text-left border border-gray-300 text-sm whitespace-nowrap">
+                    <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">
                       {customer.isEditing ? (
                         <input
                           type="text"
@@ -390,7 +598,7 @@ export default function CustomersPage() {
                         customer.customer_address
                       )}
                     </td>
-                    <td className="py-1 px-4 text-left border border-gray-300 text-sm whitespace-nowrap">
+                    <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">
                       {customer.isEditing ? (
                         <input
                           type="text"
@@ -402,7 +610,7 @@ export default function CustomersPage() {
                         customer.customer_phone
                       )}
                     </td>
-                    <td className="py-1 px-4 text-left border border-gray-300 text-sm whitespace-nowrap">
+                    <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">
                       {customer.isEditing ? (
                         <input
                           type="email"
@@ -414,7 +622,7 @@ export default function CustomersPage() {
                         customer.customer_mail
                       )}
                     </td>
-                    <td className="py-1 px-4 text-left border border-gray-300 text-sm whitespace-nowrap">
+                    <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">
                       {customer.isEditing ? (
                         <input
                           type="text"
@@ -426,11 +634,11 @@ export default function CustomersPage() {
                         customer.customer_contactPerson
                       )}
                     </td>
-                    <td className="py-1 px-4 text-left border border-gray-300 text-sm whitespace-nowrap">
+                    <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">
                       {customer.isEditing ? (
                         <select
                           value={customer.customer_rounding}
-                          onChange={(e) => setCustomers(customers.map(c => c.customer_id === customer.customer_id ? { ...c, customer_rounding: e.target.value } : c))}
+                          onChange={(e) => setCustomers(customers.map(c => c.customer_id === customer.customer_id ? { ...c, customer_rounding: e.target.value as "四捨五入" | "切上げ" | "切捨て" } : c))}
                           className="w-full p-1 border rounded"
                         >
                           <option>四捨五入</option>
@@ -441,7 +649,7 @@ export default function CustomersPage() {
                         customer.customer_rounding
                       )}
                     </td>
-                    <td className="py-1 px-4 text-left border border-gray-300 text-sm whitespace-nowrap">
+                    <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">
                       {customer.isEditing ? (
                         <input
                           type="text"
@@ -453,7 +661,7 @@ export default function CustomersPage() {
                         customer.customer_closingDay
                       )}
                     </td>
-                    <td className="py-1 px-4 text-left border border-gray-300 text-sm whitespace-nowrap">
+                    <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">
                       {customer.isEditing ? (
                         <input
                           type="text"
@@ -465,7 +673,7 @@ export default function CustomersPage() {
                         customer.customer_paymentTerms
                       )}
                     </td>
-                    <td className="py-1 px-4 text-left border border-gray-300 text-sm whitespace-nowrap">
+                    <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">
                       {customer.isEditing ? (
                         <input
                           type="text"
@@ -477,7 +685,7 @@ export default function CustomersPage() {
                         customer.invoiceDeliveryMethod
                       )}
                     </td>
-                    <td className="py-1 px-4 text-center border border-gray-300 text-sm">
+                    <td className="py-2 px-4 text-center border border-gray-300 text-base">
                       {customer.isEditing ? (
                         <>
                           <button
@@ -502,7 +710,7 @@ export default function CustomersPage() {
                         </button>
                       )}
                     </td>
-                    <td className="py-1 px-4 text-center border border-gray-300 text-sm">
+                    <td className="py-2 px-4 text-center border border-gray-300 text-base">
                       {!customer.isEditing && (
                         <button
                           onClick={() => handleDelete(customer.customer_id)}

@@ -5,8 +5,8 @@ import { Customer } from '@/types/customer';
 
 const customersFilePath = path.join(process.cwd(), 'data', 'customer_list.json');
 
-export async function PUT(req: NextRequest, { params }: { params: { customerId: string } }) {
-  const customerId = params.customerId;
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ customerId: string }> }) {
+  const { customerId } = await params;
   let updatedCustomerData: Partial<Customer>;
   try {
     updatedCustomerData = await req.json();
@@ -47,9 +47,9 @@ export async function PUT(req: NextRequest, { params }: { params: { customerId: 
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { customerId: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ customerId: string }> }) {
   try {
-    const customerId = params.customerId;
+    const { customerId } = await params;
     const customersData = await fs.readFile(customersFilePath, 'utf-8');
     let customers = JSON.parse(customersData);
     const initialLength = customers.length;

@@ -38,7 +38,7 @@ function convertToCSV(data: any[]): string {
   const csvHeader = allKeys.join(',');
 
   const csvBody = data.map(row => {
-    return allKeys.map(header => {
+    return allKeys.map((header: string) => {
       const value = row[header];
       const strValue = String(value ?? '');
       if (/[,"\n]/.test(strValue)) {

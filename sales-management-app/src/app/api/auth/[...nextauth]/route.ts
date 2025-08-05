@@ -9,7 +9,7 @@ const handler = NextAuth({
         username: { label: 'Username', type: 'text', placeholder: 'jsmith' },
         password: { label: 'Password', type: 'password' }
       },
-      async authorize(credentials, req) {
+      async authorize(credentials) {
         // ここでデータベースからユーザーを検索し、パスワードを検証します。
         // プロトタイプのため、簡易的なユーザー名とパスワードを設定します。
         if (credentials?.username === 'admin' && credentials?.password === 'password') {

@@ -23,7 +23,7 @@ const NavLink = ({ href, children }: { href: string, children: React.ReactNode }
 export default function Navbar() {
     const router = useRouter();
     const menuItems = [
-        { href: '/deliveries', title: '納品機能' },
+        { href: '/delivery', title: '納品機能' },
         { href: '/invoices', title: '請求機能' },
         { href: '/master_registration', title: 'マスタ登録' },
         { href: '/company', title: '企業情報登録' },
