@@ -7,36 +7,13 @@ import { Product } from '@/types/product';
 import { Delivery } from '@/types/delivery';
 
 export default function DeliveryRegisterPage() {
-  // Helper function to convert a number to a Base36 string
-  const toBase36 = (num: number): string => {
-    return num.toString(36).toUpperCase();
-  };
-
-  // Function to generate a unique Base36 ID
-  const generateUniqueBase36Id = (): string => {
-    const timestamp = Date.now();
-    const random = Math.floor(Math.random() * 10000); // Use a larger random range for better uniqueness
-    const combined = timestamp + random;
-
-    let base36Id = toBase36(combined);
-
-    // Pad with '0' if less than 6 characters, or truncate if more than 6 characters
-    // For 1 billion unique IDs, 6 characters is sufficient (36^6 > 10^9)
-    if (base36Id.length < 6) {
-      base36Id = '0'.repeat(6 - base36Id.length) + base36Id;
-    } else if (base36Id.length > 6) {
-      base36Id = base36Id.slice(-6); // Take the last 6 characters
-    }
-    return base36Id;
-  };
-
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [loadingDeliveries, setLoadingDeliveries] = useState(true);
   const [errorDeliveries, setErrorDeliveries] = useState<string | null>(null);
   const [deliveryData, setDeliveryData] = useState<Delivery>({
-    delivery_id: generateUniqueBase36Id(),
+    delivery_id: '',
     product_name: '',
     quantity: 0,
     unit_price: 0,
@@ -47,8 +24,8 @@ export default function DeliveryRegisterPage() {
     delivery_orderId: '',
     delivery_salesGroup: '',
     customer_name: '',
-    delivery_number: generateUniqueBase36Id(),
-    delivery_invoiceNumber: generateUniqueBase36Id(),
+    delivery_number: '',
+    delivery_invoiceNumber: '',
     delivery_status: '未',
     delivery_invoiceStatus: '未',
     delivery_date: new Date().toISOString().split('T')[0],
@@ -72,29 +49,39 @@ export default function DeliveryRegisterPage() {
     }));
   };
 
+  const fetchDeliveries = async () => {
+    try {
+      setLoadingDeliveries(true);
+      const deliveriesRes = await fetch('/api/delivery');
+      const deliveriesData = await deliveriesRes.json();
+      setDeliveries(deliveriesData);
+    } catch (error: any) {
+      console.error("Failed to fetch deliveries:", error);
+      setErrorDeliveries(error.message);
+    } finally {
+      setLoadingDeliveries(false);
+    }
+  };
+
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
-        const [customersRes, productsRes, deliveriesRes] = await Promise.all([
+        const [customersRes, productsRes] = await Promise.all([
           fetch('/api/customers'),
           fetch('/api/products'),
-          fetch('/api/delivery'),
         ]);
         const customersData = await customersRes.json();
         const productsData = await productsRes.json();
-        const deliveriesData = await deliveriesRes.json();
         setCustomers(customersData);
         setProducts(productsData);
-        setDeliveries(deliveriesData);
         console.log("Fetched Products:", productsData);
       } catch (error: any) {
         console.error("Failed to fetch initial data:", error);
         setErrorDeliveries(error.message);
-      } finally {
-        setLoadingDeliveries(false);
       }
     };
     fetchInitialData();
+    fetchDeliveries(); // Fetch deliveries on initial load
   }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -179,7 +166,7 @@ export default function DeliveryRegisterPage() {
         alert('納品データを登録しました。');
         // Reset form and generate new IDs for the next entry
         setDeliveryData({
-          delivery_id: generateUniqueBase36Id(),
+          delivery_id: '',
           product_name: '',
           quantity: 0,
           unit_price: 0,
@@ -190,8 +177,8 @@ export default function DeliveryRegisterPage() {
           delivery_orderId: '',
           delivery_salesGroup: '',
           customer_name: '',
-          delivery_number: generateUniqueBase36Id(),
-          delivery_invoiceNumber: generateUniqueBase36Id(),
+          delivery_number: '',
+          delivery_invoiceNumber: '',
           delivery_status: '未',
           delivery_invoiceStatus: '未',
           delivery_date: new Date().toISOString().split('T')[0],
@@ -199,6 +186,7 @@ export default function DeliveryRegisterPage() {
         });
         setProductSearchTerm(''); // Reset search term on successful submission
         setShowProductSuggestions(false);
+        fetchDeliveries(); // Fetch updated deliveries after successful submission
       } else {
         throw new Error('Failed to save delivery data');
       }
@@ -211,7 +199,7 @@ export default function DeliveryRegisterPage() {
   const handleDeleteDelivery = async (id: string) => {
     if (confirm(`納品ID: ${id} を削除しますか？`)) {
       try {
-        const response = await fetch(`/api/delivery/${id}`, {
+        const response = await fetch(`/api/delivery?delivery_id=${id}`, {
           method: 'DELETE',
         });
 
@@ -496,7 +484,7 @@ export default function DeliveryRegisterPage() {
             <tbody>
               {deliveries.map((delivery) => (
                 <tr key={delivery.delivery_id} className="even:bg-gray-100">
-                  <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">{delivery.delivery_id.slice(-6)}</td>
+                  <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">{delivery.delivery_id}</td>
                   <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">{delivery.product_name}</td>
                   <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">{delivery.quantity}</td>
                   <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">{delivery.unit_price}</td>

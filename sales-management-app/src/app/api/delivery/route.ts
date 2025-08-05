@@ -23,12 +23,12 @@ async function writeData(data: Delivery[]): Promise<void> {
 
 function generateNextId(prefix: string, existingData: Delivery[], idField: keyof Delivery): string {
   let maxSequentialId = 0;
-  const regex = new RegExp(`^${prefix}(\d{9})$`); // Regex to match prefix + 9 digits
+  const regex = new RegExp(`^${prefix}(\\d{9})$`); // Regex to match prefix + 9 digits
   for (const data of existingData) {
     const currentId = data[idField] as string;
     const match = currentId.match(regex);
     if (match) {
-      const idNum = parseInt(match[1], 10); // Extract the 9-digit number
+      const idNum = parseInt(match[1], 10);
       if (!isNaN(idNum) && idNum > maxSequentialId) {
         maxSequentialId = idNum;
       }
@@ -36,7 +36,7 @@ function generateNextId(prefix: string, existingData: Delivery[], idField: keyof
   }
   const nextId = maxSequentialId + 1;
   const paddedId = String(nextId).padStart(9, '0');
-  return `${prefix}${paddedId}`;
+  return prefix + paddedId; // Using string concatenation to avoid template literal issues
 }
 
 export async function POST(request: Request) {
@@ -44,9 +44,9 @@ export async function POST(request: Request) {
     const newData: Delivery = await request.json();
     const allData = await readData();
     // 自動付番の項目を設定
-    newData.delivery_id = generateNextId('del-', allData, 'delivery_id');
-    newData.delivery_number = generateNextId('DN-', allData, 'delivery_number');
-    newData.delivery_invoiceNumber = generateNextId('IN-', allData, 'delivery_invoiceNumber');
+    newData.delivery_id = generateNextId('D', allData, 'delivery_id');
+    newData.delivery_number = generateNextId('N', allData, 'delivery_number');
+    newData.delivery_invoiceNumber = generateNextId('I', allData, 'delivery_invoiceNumber');
     allData.push(newData);
     await writeData(allData);
     return NextResponse.json(newData, { status: 201 });
