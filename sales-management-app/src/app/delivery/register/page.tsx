@@ -6,10 +6,15 @@ import { Customer } from '@/types/customer';
 import { Product } from '@/types/product';
 import { Delivery } from '@/types/delivery';
 
+interface EditableDelivery extends Delivery {
+  isEditing?: boolean;
+}
+
 export default function DeliveryRegisterPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [deliveries, setDeliveries] = useState<Delivery[]>([]);
+  const [deliveries, setDeliveries] = useState<EditableDelivery[]>([]); // Changed to EditableDelivery[]
+  const [originalDeliveries, setOriginalDeliveries] = useState<EditableDelivery[]>([]); // Added originalDeliveries
   const [loadingDeliveries, setLoadingDeliveries] = useState(true);
   const [errorDeliveries, setErrorDeliveries] = useState<string | null>(null);
   const [deliveryData, setDeliveryData] = useState<Delivery>({
@@ -17,10 +22,9 @@ export default function DeliveryRegisterPage() {
     product_name: '',
     quantity: 0,
     unit_price: 0,
-    total_amount: 0,
     delivery_unit: '',
     delivery_note: '',
-    delivery_tax: 10,
+    delivery_tax: 0,
     delivery_orderId: '',
     delivery_salesGroup: '',
     customer_name: '',
@@ -28,6 +32,12 @@ export default function DeliveryRegisterPage() {
     delivery_invoiceNumber: '',
     delivery_status: '未',
     delivery_invoiceStatus: '未',
+
+    total_amount: 0,
+    delivery_shippingName: '',
+    delivery_shippingPostalcode: '',
+    delivery_shippingAddress: '',
+    delivery_shippingPhone: '',
     delivery_date: new Date().toISOString().split('T')[0],
     delivery_invoiceDate: '',
   });
@@ -42,10 +52,15 @@ export default function DeliveryRegisterPage() {
     setDeliveryData(prevData => ({
       ...prevData,
       product_name: '',
+      quantity: 0,
       unit_price: 0,
       delivery_unit: '',
       delivery_tax: 0,
       delivery_note: '',
+      delivery_shippingName: '', // 新規追加
+      delivery_shippingPostalcode: '', // 新規追加
+      delivery_shippingAddress: '', // 新規追加
+      delivery_shippingPhone: '', // 新規追加
     }));
   };
 
@@ -53,8 +68,11 @@ export default function DeliveryRegisterPage() {
     try {
       setLoadingDeliveries(true);
       const deliveriesRes = await fetch('/api/delivery');
-      const deliveriesData = await deliveriesRes.json();
-      setDeliveries(deliveriesData);
+      const deliveriesData: Delivery[] = await deliveriesRes.json();
+      // Map to EditableDelivery and set isEditing to false
+      const editableDeliveries = deliveriesData.map(d => ({ ...d, isEditing: false }));
+      setDeliveries(editableDeliveries);
+      setOriginalDeliveries(editableDeliveries); // Store original for cancel
     } catch (error: any) {
       console.error("Failed to fetch deliveries:", error);
       setErrorDeliveries(error.message);
@@ -92,6 +110,33 @@ export default function DeliveryRegisterPage() {
     }));
   };
 
+  // New handler for changes in editable table cells
+  const handleEditChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
+    deliveryId: string,
+    field: keyof Delivery
+  ) => {
+    const { value } = e.target;
+    setDeliveries(prevDeliveries =>
+      prevDeliveries.map(delivery =>
+        delivery.delivery_id === deliveryId
+          ? {
+              ...delivery,
+              [field]:
+                field === 'quantity' || field === 'unit_price' || field === 'delivery_tax'
+                  ? parseFloat(value)
+                  : value,
+              total_amount:
+                field === 'quantity' || field === 'unit_price'
+                  ? (field === 'quantity' ? parseFloat(value) : delivery.quantity) *
+                    (field === 'unit_price' ? parseFloat(value) : delivery.unit_price)
+                  : delivery.total_amount,
+            }
+          : delivery
+      )
+    );
+  };
+
   const handleCustomerChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setDeliveryData(prevData => ({
       ...prevData,
@@ -113,6 +158,10 @@ export default function DeliveryRegisterPage() {
           delivery_unit: product.product_unit,
           delivery_tax: product.product_tax,
           delivery_note: product.product_note,
+          delivery_shippingName: product.product_shippingName, // 新規追加
+          delivery_shippingPostalcode: product.product_shippingPostalcode, // 新規追加
+          delivery_shippingAddress: product.product_shippingAddress, // 新規追加
+          delivery_shippingPhone: product.product_shippingPhone, // 新規追加
         }));
       } else {
         setDeliveryData(prevData => ({
@@ -122,6 +171,10 @@ export default function DeliveryRegisterPage() {
           delivery_unit: '', // Reset if not a product
           delivery_tax: 0, // Reset if not a product
           delivery_note: '', // Reset if not a product
+          delivery_shippingName: '', // 新規追加
+          delivery_shippingPostalcode: '', // 新規追加
+          delivery_shippingAddress: '', // 新規追加
+          delivery_shippingPhone: '', // 新規追加
         }));
       }
     } else if (inputMode === 'free') {
@@ -145,6 +198,10 @@ export default function DeliveryRegisterPage() {
       delivery_unit: product.product_unit,
       delivery_tax: product.product_tax,
       delivery_note: product.product_note,
+      delivery_shippingName: product.product_shippingName, // 新規追加
+      delivery_shippingPostalcode: product.product_shippingPostalcode, // 新規追加
+      delivery_shippingAddress: product.product_shippingAddress, // 新規追加
+      delivery_shippingPhone: product.product_shippingPhone, // 新規追加
     }));
     setProductSearchTerm(product.product_name);
     setShowProductSuggestions(false);
@@ -183,6 +240,10 @@ export default function DeliveryRegisterPage() {
           delivery_invoiceStatus: '未',
           delivery_date: new Date().toISOString().split('T')[0],
           delivery_invoiceDate: '',
+          delivery_shippingName: '', // 新規追加
+          delivery_shippingPostalcode: '', // 新規追加
+          delivery_shippingAddress: '', // 新規追加
+          delivery_shippingPhone: '', // 新規追加
         });
         setProductSearchTerm(''); // Reset search term on successful submission
         setShowProductSuggestions(false);
@@ -208,6 +269,7 @@ export default function DeliveryRegisterPage() {
           // 納品リストを更新
           const updatedDeliveries = deliveries.filter(delivery => delivery.delivery_id !== id);
           setDeliveries(updatedDeliveries);
+          setOriginalDeliveries(updatedDeliveries); // Update original as well
         } else {
           alert('納品データの削除に失敗しました。');
         }
@@ -217,6 +279,73 @@ export default function DeliveryRegisterPage() {
       }
     }
   };
+
+  // New handleEdit function
+  const handleEdit = (deliveryId: string) => {
+    setDeliveries(prevDeliveries =>
+      prevDeliveries.map(delivery =>
+        delivery.delivery_id === deliveryId ? { ...delivery, isEditing: true } : delivery
+      )
+    );
+  };
+
+  // New handleSave function
+  const handleSave = async (deliveryToSave: EditableDelivery) => {
+    try {
+      // Remove isEditing before sending to API
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { isEditing, ...deliveryDataToSend } = deliveryToSave;
+      const response = await fetch(`/api/delivery/${deliveryToSave.delivery_id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(deliveryDataToSend),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      setDeliveries(prevDeliveries =>
+        prevDeliveries.map(delivery =>
+          delivery.delivery_id === deliveryToSave.delivery_id ? { ...deliveryToSave, isEditing: false } : delivery
+        )
+      );
+      setOriginalDeliveries(prevOriginal =>
+        prevOriginal.map(delivery =>
+          delivery.delivery_id === deliveryToSave.delivery_id ? { ...deliveryToSave, isEditing: false } : delivery
+        )
+      );
+      alert('納品データが更新されました。');
+    } catch (e: any) {
+      setErrorDeliveries(e.message);
+      alert(`納品データの更新に失敗しました: ${e.message}`);
+    }
+  };
+
+  // New handleCancel function
+  const handleCancel = (deliveryId: string) => {
+    setDeliveries(prevDeliveries =>
+      prevDeliveries.map(delivery =>
+        delivery.delivery_id === deliveryId
+          ? { ...originalDeliveries.find(d => d.delivery_id === deliveryId)!, isEditing: false }
+          : delivery
+      )
+    );
+  };
+
+  const handleIssueDelivery = async (deliveryId: string) => {
+    const deliveryToIssue = deliveries.find(d => d.delivery_id === deliveryId);
+    if (deliveryToIssue) {
+      const updatedDelivery: EditableDelivery = {
+        ...deliveryToIssue,
+        delivery_status: '済',
+        delivery_invoiceStatus: '済',
+      };
+      await handleSave(updatedDelivery);
+    }
+  };
+
 
   const filteredAndSortedProducts = products
     .filter(product => {
@@ -237,8 +366,6 @@ export default function DeliveryRegisterPage() {
       <div className="w-full mx-auto p-8">
         <h1 className="text-size-30 font-bold text-center mb-8">納品登録</h1>
         <form onSubmit={handleSubmit} className="bg-white shadow-md rounded-lg p-8">
-
-          
 
           {/* 1行目: 納品日、納品税区分、注文番号、売上グループ */}
           <div className="flex flex-wrap -mx-2 mb-4">
@@ -288,7 +415,7 @@ export default function DeliveryRegisterPage() {
             </div>
           </div>
 
-          {/* 2行目: 取引先名 */}
+          {/* 取引先名 */}
           <div className="mb-4">
             <label htmlFor="customer_name" className="block text-gray-700 text-sm font-bold mb-2">取引先名</label>
             <select
@@ -307,7 +434,7 @@ export default function DeliveryRegisterPage() {
             </select>
           </div>
 
-          {/* 3行目: 納品品番 (リスト入力と自由入力の選択) */}
+          {/* 納品品番入力方法 */}
           <div className="mb-4">
             <label className="block text-gray-700 text-sm font-bold mb-2">納品品番入力方法</label>
             <div className="flex items-center mb-2">
@@ -383,7 +510,7 @@ export default function DeliveryRegisterPage() {
             )}
           </div>
 
-          {/* 4行目: 納品数量、納品単価、（ここで単価掛ける数量の金額）、納品単位 */}
+          {/* 納品数量、納品単価、金額、納品単位 */}
           <div className="flex flex-wrap -mx-2 mb-4">
             <div className="w-full md:w-1/4 px-2 mb-4 md:mb-0">
               <label htmlFor="quantity" className="block text-gray-700 text-sm font-bold mb-2">納品数量</label>
@@ -431,7 +558,59 @@ export default function DeliveryRegisterPage() {
             </div>
           </div>
 
-          {/* 5行目: 納品備考 */}
+          {/* 納品先名 */}
+          <div className="mb-4">
+            <label htmlFor="delivery_shippingName" className="block text-gray-700 text-sm font-bold mb-2">納品先名</label>
+            <input
+              type="text"
+              id="delivery_shippingName"
+              name="delivery_shippingName"
+              value={deliveryData.delivery_shippingName}
+              onChange={handleChange}
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            />
+          </div>
+
+          {/* 納品先〒と納品先電話 */}
+          <div className="flex flex-wrap -mx-2 mb-4">
+            <div className="w-full md:w-1/2 px-2 mb-4 md:mb-0">
+              <label htmlFor="delivery_shippingPostalcode" className="block text-gray-700 text-sm font-bold mb-2">納品先〒</label>
+              <input
+                type="text"
+                id="delivery_shippingPostalcode"
+                name="delivery_shippingPostalcode"
+                value={deliveryData.delivery_shippingPostalcode}
+                onChange={handleChange}
+                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              />
+            </div>
+            <div className="w-full md:w-1/2 px-2">
+              <label htmlFor="delivery_shippingPhone" className="block text-gray-700 text-sm font-bold mb-2">納品先電話</label>
+              <input
+                type="text"
+                id="delivery_shippingPhone"
+                name="delivery_shippingPhone"
+                value={deliveryData.delivery_shippingPhone}
+                onChange={handleChange}
+                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              />
+            </div>
+          </div>
+
+          {/* 納品先住所 */}
+          <div className="mb-4">
+            <label htmlFor="delivery_shippingAddress" className="block text-gray-700 text-sm font-bold mb-2">納品先住所</label>
+            <input
+              type="text"
+              id="delivery_shippingAddress"
+              name="delivery_shippingAddress"
+              value={deliveryData.delivery_shippingAddress}
+              onChange={handleChange}
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            />
+          </div>
+
+          {/* 納品備考 (Assuming this was the intended field for the last "納品品番") */}
           <div className="mb-4">
             <label htmlFor="delivery_note" className="block text-gray-700 text-sm font-bold mb-2">納品備考</label>
             <textarea
@@ -470,6 +649,10 @@ export default function DeliveryRegisterPage() {
                 <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">注文番号</th>
                 <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">売上グループ</th>
                 <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">取引先名</th>
+                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">納品先名</th> {/* 新規追加 */}
+                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">納品先〒</th> {/* 新規追加 */}
+                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">納品先住所</th> {/* 新規追加 */}
+                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">納品先電話</th> {/* 新規追加 */}
                 <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">納品書番号</th>
                 <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">請求書番号</th>
                 <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">納品書ステータス</th>
@@ -485,45 +668,291 @@ export default function DeliveryRegisterPage() {
               {deliveries.map((delivery) => (
                 <tr key={delivery.delivery_id} className="even:bg-gray-100">
                   <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">{delivery.delivery_id}</td>
-                  <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">{delivery.product_name}</td>
-                  <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">{delivery.quantity}</td>
-                  <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">{delivery.unit_price}</td>
-                  <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">{delivery.total_amount}</td>
-                  <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">{delivery.delivery_unit}</td>
-                  <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">{delivery.delivery_note}</td>
-                  <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">{delivery.delivery_tax}</td>
-                  <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">{delivery.delivery_orderId}</td>
-                  <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">{delivery.delivery_salesGroup}</td>
-                  <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">{delivery.customer_name}</td>
-                  <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">{delivery.delivery_number}</td>
-                  <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">{delivery.delivery_invoiceNumber}</td>
-                  <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">{delivery.delivery_status}</td>
-                  <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">{delivery.delivery_invoiceStatus}</td>
-                  <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">{delivery.delivery_date}</td>
-                  <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">{delivery.delivery_invoiceDate}</td>
-                  <td className="py-2 px-4 text-center border border-gray-300 text-base">
-                    <button
-                      onClick={() => console.log('編集', delivery.delivery_id)}
-                      className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded text-xs"
-                    >
-                      編集
-                    </button>
+                  <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">
+                    {delivery.isEditing ? (
+                      <input
+                        type="text"
+                        value={delivery.product_name}
+                        onChange={(e) => handleEditChange(e, delivery.delivery_id, 'product_name')}
+                        className="w-full p-1 border rounded"
+                      />
+                    ) : (
+                      delivery.product_name
+                    )}
+                  </td>
+                  <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">
+                    {delivery.isEditing ? (
+                      <input
+                        type="number"
+                        value={delivery.quantity}
+                        onChange={(e) => handleEditChange(e, delivery.delivery_id, 'quantity')}
+                        className="w-full p-1 border rounded"
+                      />
+                    ) : (
+                      delivery.quantity
+                    )}
+                  </td>
+                  <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">
+                    {delivery.isEditing ? (
+                      <input
+                        type="number"
+                        value={delivery.unit_price}
+                        onChange={(e) => handleEditChange(e, delivery.delivery_id, 'unit_price')}
+                        className="w-full p-1 border rounded"
+                      />
+                    ) : (
+                      delivery.unit_price
+                    )}
+                  </td>
+                  <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">
+                    {/* Total amount is calculated, not directly editable */}
+                    {delivery.total_amount.toFixed(2)}
+                  </td>
+                  <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">
+                    {delivery.isEditing ? (
+                      <input
+                        type="text"
+                        value={delivery.delivery_unit}
+                        onChange={(e) => handleEditChange(e, delivery.delivery_id, 'delivery_unit')}
+                        className="w-full p-1 border rounded"
+                      />
+                    ) : (
+                      delivery.delivery_unit
+                    )}
+                  </td>
+                  <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">
+                    {delivery.isEditing ? (
+                      <textarea
+                        value={delivery.delivery_note}
+                        onChange={(e) => handleEditChange(e, delivery.delivery_id, 'delivery_note')}
+                        className="w-full p-1 border rounded"
+                        rows={2}
+                      />
+                    ) : (
+                      delivery.delivery_note
+                    )}
+                  </td>
+                  <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">
+                    {delivery.isEditing ? (
+                      <input
+                        type="number"
+                        value={delivery.delivery_tax}
+                        onChange={(e) => handleEditChange(e, delivery.delivery_id, 'delivery_tax')}
+                        className="w-full p-1 border rounded"
+                      />
+                    ) : (
+                      delivery.delivery_tax
+                    )}
+                  </td>
+                  <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">
+                    {delivery.isEditing ? (
+                      <input
+                        type="text"
+                        value={delivery.delivery_orderId}
+                        onChange={(e) => handleEditChange(e, delivery.delivery_id, 'delivery_orderId')}
+                        className="w-full p-1 border rounded"
+                      />
+                    ) : (
+                      delivery.delivery_orderId
+                    )}
+                  </td>
+                  <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">
+                    {delivery.isEditing ? (
+                      <input
+                        type="text"
+                        value={delivery.delivery_salesGroup}
+                        onChange={(e) => handleEditChange(e, delivery.delivery_id, 'delivery_salesGroup')}
+                        className="w-full p-1 border rounded"
+                      />
+                    ) : (
+                      delivery.delivery_salesGroup
+                    )}
+                  </td>
+                  <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">
+                    {delivery.isEditing ? (
+                      <select
+                        value={delivery.customer_name}
+                        onChange={(e) => handleEditChange(e, delivery.delivery_id, 'customer_name')}
+                        className="w-full p-1 border rounded"
+                      >
+                        {customers.map(customer => (
+                          <option key={customer.customer_id} value={customer.customer_name}>
+                            {customer.customer_name}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      delivery.customer_name
+                    )}
+                  </td>
+                  <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">
+                    {delivery.isEditing ? (
+                      <input
+                        type="text"
+                        value={delivery.delivery_shippingName}
+                        onChange={(e) => handleEditChange(e, delivery.delivery_id, 'delivery_shippingName')}
+                        className="w-full p-1 border rounded"
+                      />
+                    ) : (
+                      delivery.delivery_shippingName
+                    )}
+                  </td>
+                  <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">
+                    {delivery.isEditing ? (
+                      <input
+                        type="text"
+                        value={delivery.delivery_shippingPostalcode}
+                        onChange={(e) => handleEditChange(e, delivery.delivery_id, 'delivery_shippingPostalcode')}
+                        className="w-full p-1 border rounded"
+                      />
+                    ) : (
+                      delivery.delivery_shippingPostalcode
+                    )}
+                  </td>
+                  <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">
+                    {delivery.isEditing ? (
+                      <input
+                        type="text"
+                        value={delivery.delivery_shippingAddress}
+                        onChange={(e) => handleEditChange(e, delivery.delivery_id, 'delivery_shippingAddress')}
+                        className="w-full p-1 border rounded"
+                      />
+                    ) : (
+                      delivery.delivery_shippingAddress
+                    )}
+                  </td>
+                  <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">
+                    {delivery.isEditing ? (
+                      <input
+                        type="text"
+                        value={delivery.delivery_shippingPhone}
+                        onChange={(e) => handleEditChange(e, delivery.delivery_id, 'delivery_shippingPhone')}
+                        className="w-full p-1 border rounded"
+                      />
+                    ) : (
+                      delivery.delivery_shippingPhone
+                    )}
+                  </td>
+                  <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">
+                    {delivery.isEditing ? (
+                      <input
+                        type="text"
+                        value={delivery.delivery_number}
+                        onChange={(e) => handleEditChange(e, delivery.delivery_id, 'delivery_number')}
+                        className="w-full p-1 border rounded"
+                      />
+                    ) : (
+                      delivery.delivery_number
+                    )}
+                  </td>
+                  <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">
+                    {delivery.isEditing ? (
+                      <input
+                        type="text"
+                        value={delivery.delivery_invoiceNumber}
+                        onChange={(e) => handleEditChange(e, delivery.delivery_id, 'delivery_invoiceNumber')}
+                        className="w-full p-1 border rounded"
+                      />
+                    ) : (
+                      delivery.delivery_invoiceNumber
+                    )}
+                  </td>
+                  <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">
+                    {delivery.isEditing ? (
+                      <select
+                        value={delivery.delivery_status}
+                        onChange={(e) => handleEditChange(e, delivery.delivery_id, 'delivery_status')}
+                        className="w-full p-1 border rounded"
+                      >
+                        <option value="未">未</option>
+                        <option value="済">済</option>
+                      </select>
+                    ) : (
+                      delivery.delivery_status
+                    )}
+                  </td>
+                  <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">
+                    {delivery.isEditing ? (
+                      <select
+                        value={delivery.delivery_invoiceStatus}
+                        onChange={(e) => handleEditChange(e, delivery.delivery_id, 'delivery_invoiceStatus')}
+                        className="w-full p-1 border rounded"
+                      >
+                        <option value="未">未</option>
+                        <option value="済">済</option>
+                      </select>
+                    ) : (
+                      delivery.delivery_invoiceStatus
+                    )}
+                  </td>
+                  <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">
+                    {delivery.isEditing ? (
+                      <input
+                        type="date"
+                        value={delivery.delivery_date}
+                        onChange={(e) => handleEditChange(e, delivery.delivery_id, 'delivery_date')}
+                        className="w-full p-1 border rounded"
+                      />
+                    ) : (
+                      delivery.delivery_date
+                    )}
+                  </td>
+                  <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">
+                    {delivery.isEditing ? (
+                      <input
+                        type="date"
+                        value={delivery.delivery_invoiceDate}
+                        onChange={(e) => handleEditChange(e, delivery.delivery_id, 'delivery_invoiceDate')}
+                        className="w-full p-1 border rounded"
+                      />
+                    ) : (
+                      delivery.delivery_invoiceDate
+                    )}
                   </td>
                   <td className="py-2 px-4 text-center border border-gray-300 text-base">
-                    <button
-                      onClick={() => handleDeleteDelivery(delivery.delivery_id)}
-                      className="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded text-xs"
-                    >
-                      削除
-                    </button>
+                    {delivery.isEditing ? (
+                      <>
+                        <button
+                          onClick={() => handleSave(delivery)}
+                          className="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded text-xs mr-1"
+                        >
+                          保存
+                        </button>
+                        <button
+                          onClick={() => handleCancel(delivery.delivery_id)}
+                          className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-1 px-2 rounded text-xs"
+                        >
+                          キャンセル
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => handleEdit(delivery.delivery_id)}
+                        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded text-xs"
+                      >
+                        編集
+                      </button>
+                    )}
                   </td>
                   <td className="py-2 px-4 text-center border border-gray-300 text-base">
-                    <button
-                      onClick={() => console.log('発行', delivery.delivery_id)}
-                      className="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded text-xs"
-                    >
-                      発行
-                    </button>
+                    {!delivery.isEditing && (
+                      <button
+                        onClick={() => handleDeleteDelivery(delivery.delivery_id)}
+                        className="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded text-xs"
+                      >
+                        削除
+                      </button>
+                    )}
+                  </td>
+                  <td className="py-2 px-4 text-center border border-gray-300 text-base">
+                    {!delivery.isEditing && (
+                      <button
+                        onClick={() => handleIssueDelivery(delivery.delivery_id)}
+                        className="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded text-xs"
+                      >
+                        発行
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -534,3 +963,6 @@ export default function DeliveryRegisterPage() {
     </AuthenticatedLayout>
   );
 }
+
+
+  

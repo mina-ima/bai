@@ -45,8 +45,6 @@ export async function POST(request: Request) {
     const allData = await readData();
     // 自動付番の項目を設定
     newData.delivery_id = generateNextId('D', allData, 'delivery_id');
-    newData.delivery_number = generateNextId('N', allData, 'delivery_number');
-    newData.delivery_invoiceNumber = generateNextId('I', allData, 'delivery_invoiceNumber');
     allData.push(newData);
     await writeData(allData);
     return NextResponse.json(newData, { status: 201 });
@@ -63,6 +61,34 @@ export async function GET() {
   } catch (error: any) {
     console.error('Error reading data:', error);
     return NextResponse.json({ message: 'Error reading data' }, { status: 500 });
+  }
+}
+
+export async function PUT(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const deliveryId = searchParams.get('delivery_id');
+    const updatedData: Delivery = await request.json();
+
+    if (!deliveryId) {
+      return NextResponse.json({ message: 'delivery_id is required' }, { status: 400 });
+    }
+
+    const allData = await readData();
+    const index = allData.findIndex(delivery => delivery.delivery_id === deliveryId);
+
+    if (index === -1) {
+      return NextResponse.json({ message: 'Delivery not found' }, { status: 404 });
+    }
+
+    // Update the existing delivery with new data, but keep the original delivery_id
+    allData[index] = { ...allData[index], ...updatedData, delivery_id: deliveryId };
+
+    await writeData(allData);
+    return NextResponse.json(allData[index], { status: 200 });
+  } catch (error: any) {
+    console.error('Error updating data:', error);
+    return NextResponse.json({ message: 'Error updating data' }, { status: 500 });
   }
 }
 

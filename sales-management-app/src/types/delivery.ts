@@ -16,4 +16,9 @@ export interface Delivery {
   delivery_date: string; // 納品日、自由入力（日付）
   delivery_invoiceDate: string; // 請求日、自由入力（日付）
   total_amount: number; // 合計金額
+  delivery_shippingName: string; // 納品先名
+  delivery_shippingPostalcode: string; // 納品先〒
+  delivery_shippingAddress: string; // 納品先住所
+  delivery_shippingPhone: string; // 納品先電話
+  isEditing?: boolean;
 }
