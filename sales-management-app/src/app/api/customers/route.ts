@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 
-const customersFilePath = path.join(process.cwd(), 'data', 'customer_list.json');
+// customersFilePath のパスを修正
+const customersFilePath = path.join(process.cwd(), 'public', 'data', 'customer_list.json');
 
 interface Customer {
   customer_id: string;

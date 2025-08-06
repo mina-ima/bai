@@ -5,18 +5,37 @@ import AuthenticatedLayout from '@/components/AuthenticatedLayout';
 import { Customer } from '@/types/customer';
 import { Product } from '@/types/product';
 import { Delivery } from '@/types/delivery';
+import { DeliveryNotePdfProps } from '@/components/DeliveryNotePdf'; // PDF Propsをインポート
 
 interface EditableDelivery extends Delivery {
   isEditing?: boolean;
 }
 
+// 会社情報の型定義 (company_info.json に合わせる)
+interface CompanyInfo {
+  company_name: string;
+  company_postalCode: string;
+  company_address: string;
+  company_phone: string;
+  company_fax: string;
+  company_mail: string;
+  company_contactPerson: string;
+  company_bankName: string;
+  company_bankBranch: string;
+  company_bankType: string;
+  company_bankNumber: string;
+  company_bankHolder: string;
+  company_invoiceNumber: string;
+}
+
 export default function DeliveryRegisterPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [deliveries, setDeliveries] = useState<EditableDelivery[]>([]); // Changed to EditableDelivery[]
-  const [originalDeliveries, setOriginalDeliveries] = useState<EditableDelivery[]>([]); // Added originalDeliveries
+  const [deliveries, setDeliveries] = useState<EditableDelivery[]>([]);
+  const [originalDeliveries, setOriginalDeliveries] = useState<EditableDelivery[]>([]);
   const [loadingDeliveries, setLoadingDeliveries] = useState(true);
   const [errorDeliveries, setErrorDeliveries] = useState<string | null>(null);
+  const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null); // 会社情報を追加
   const [deliveryData, setDeliveryData] = useState<Delivery>({
     delivery_id: '',
     product_name: '',
@@ -45,6 +64,11 @@ export default function DeliveryRegisterPage() {
   const [productSearchTerm, setProductSearchTerm] = useState<string>('');
   const [showProductSuggestions, setShowProductSuggestions] = useState<boolean>(false);
 
+  // 取引先名インクリメンタルサーチ用の新しいステート
+  const [customerSearchTerm, setCustomerSearchTerm] = useState<string>('');
+  const [showCustomerSuggestions, setShowCustomerSuggestions] = useState<boolean>(false);
+
+
   const [inputMode, setInputMode] = useState<'list' | 'free'>('list');
 
   const handleInputModeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -69,10 +93,9 @@ export default function DeliveryRegisterPage() {
       setLoadingDeliveries(true);
       const deliveriesRes = await fetch('/api/delivery');
       const deliveriesData: Delivery[] = await deliveriesRes.json();
-      // Map to EditableDelivery and set isEditing to false
       const editableDeliveries = deliveriesData.map(d => ({ ...d, isEditing: false }));
       setDeliveries(editableDeliveries);
-      setOriginalDeliveries(editableDeliveries); // Store original for cancel
+      setOriginalDeliveries(editableDeliveries);
     } catch (error: any) {
       console.error("Failed to fetch deliveries:", error);
       setErrorDeliveries(error.message);
@@ -84,14 +107,18 @@ export default function DeliveryRegisterPage() {
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
-        const [customersRes, productsRes] = await Promise.all([
+        const [customersRes, productsRes, companyInfoRes] = await Promise.all([
           fetch('/api/customers'),
           fetch('/api/products'),
+          fetch('/data/company_info.json'),
         ]);
         const customersData = await customersRes.json();
         const productsData = await productsRes.json();
+        const companyData = await companyInfoRes.json();
+
         setCustomers(customersData);
         setProducts(productsData);
+        setCompanyInfo(companyData);
         console.log("Fetched Products:", productsData);
       } catch (error: any) {
         console.error("Failed to fetch initial data:", error);
@@ -99,7 +126,7 @@ export default function DeliveryRegisterPage() {
       }
     };
     fetchInitialData();
-    fetchDeliveries(); // Fetch deliveries on initial load
+    fetchDeliveries();
   }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -110,7 +137,6 @@ export default function DeliveryRegisterPage() {
     }));
   };
 
-  // New handler for changes in editable table cells
   const handleEditChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
     deliveryId: string,
@@ -137,52 +163,27 @@ export default function DeliveryRegisterPage() {
     );
   };
 
-  const handleCustomerChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  // 取引先名インクリメンタルサーチの入力変更ハンドラ
+  const handleCustomerSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { value } = e.target;
+    setCustomerSearchTerm(value);
+    setShowCustomerSuggestions(true); // 入力時に候補を表示
     setDeliveryData(prevData => ({
       ...prevData,
-      customer_name: e.target.value,
+      customer_name: value, // 入力中の値をdeliveryDataにも反映
     }));
-    setProductSearchTerm(''); // Reset product search term
-    setShowProductSuggestions(false); // Hide product suggestions
   };
 
-  const handleProductNameChange = (e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>) => {
-    const { value } = e.target;
-    if (inputMode === 'list') {
-      const product = products.find(p => p.product_name === value);
-      if (product) {
-        setDeliveryData(prevData => ({
-          ...prevData,
-          product_name: product.product_name,
-          unit_price: product.product_unitPrice,
-          delivery_unit: product.product_unit,
-          delivery_tax: product.product_tax,
-          delivery_note: product.product_note,
-          delivery_shippingName: product.product_shippingName, // 新規追加
-          delivery_shippingPostalcode: product.product_shippingPostalcode, // 新規追加
-          delivery_shippingAddress: product.product_shippingAddress, // 新規追加
-          delivery_shippingPhone: product.product_shippingPhone, // 新規追加
-        }));
-      } else {
-        setDeliveryData(prevData => ({
-          ...prevData,
-          product_name: value,
-          unit_price: 0, // Reset if not a product
-          delivery_unit: '', // Reset if not a product
-          delivery_tax: 0, // Reset if not a product
-          delivery_note: '', // Reset if not a product
-          delivery_shippingName: '', // 新規追加
-          delivery_shippingPostalcode: '', // 新規追加
-          delivery_shippingAddress: '', // 新規追加
-          delivery_shippingPhone: '', // 新規追加
-        }));
-      }
-    } else if (inputMode === 'free') {
-      setDeliveryData(prevData => ({
-        ...prevData,
-        product_name: value,
-      }));
-    }
+  // 取引先名候補選択ハンドラ
+  const handleCustomerSelect = (customer: Customer) => {
+    setDeliveryData(prevData => ({
+      ...prevData,
+      customer_name: customer.customer_name, // 選択された顧客名をセット
+    }));
+    setCustomerSearchTerm(customer.customer_name); // 検索ボックスの値を更新
+    setShowCustomerSuggestions(false); // 候補を非表示
+    setProductSearchTerm(''); // 取引先が変更されたら商品検索語をリセット
+    setShowProductSuggestions(false); // 商品候補も非表示にする
   };
 
   const handleProductSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -198,10 +199,10 @@ export default function DeliveryRegisterPage() {
       delivery_unit: product.product_unit,
       delivery_tax: product.product_tax,
       delivery_note: product.product_note,
-      delivery_shippingName: product.product_shippingName, // 新規追加
-      delivery_shippingPostalcode: product.product_shippingPostalcode, // 新規追加
-      delivery_shippingAddress: product.product_shippingAddress, // 新規追加
-      delivery_shippingPhone: product.product_shippingPhone, // 新規追加
+      delivery_shippingName: product.product_shippingName,
+      delivery_shippingPostalcode: product.product_shippingPostalcode,
+      delivery_shippingAddress: product.product_shippingAddress,
+      delivery_shippingPhone: product.product_shippingPhone,
     }));
     setProductSearchTerm(product.product_name);
     setShowProductSuggestions(false);
@@ -221,7 +222,6 @@ export default function DeliveryRegisterPage() {
 
       if (response.ok) {
         alert('納品データを登録しました。');
-        // Reset form and generate new IDs for the next entry
         setDeliveryData({
           delivery_id: '',
           product_name: '',
@@ -240,14 +240,14 @@ export default function DeliveryRegisterPage() {
           delivery_invoiceStatus: '未',
           delivery_date: new Date().toISOString().split('T')[0],
           delivery_invoiceDate: '',
-          delivery_shippingName: '', // 新規追加
-          delivery_shippingPostalcode: '', // 新規追加
-          delivery_shippingAddress: '', // 新規追加
-          delivery_shippingPhone: '', // 新規追加
+          delivery_shippingName: '',
+          delivery_shippingPostalcode: '',
+          delivery_shippingAddress: '',
+          delivery_shippingPhone: '',
         });
-        setProductSearchTerm(''); // Reset search term on successful submission
+        setProductSearchTerm('');
         setShowProductSuggestions(false);
-        fetchDeliveries(); // Fetch updated deliveries after successful submission
+        fetchDeliveries();
       } else {
         throw new Error('Failed to save delivery data');
       }
@@ -266,10 +266,9 @@ export default function DeliveryRegisterPage() {
 
         if (response.ok) {
           alert('納品データが削除されました。');
-          // 納品リストを更新
           const updatedDeliveries = deliveries.filter(delivery => delivery.delivery_id !== id);
           setDeliveries(updatedDeliveries);
-          setOriginalDeliveries(updatedDeliveries); // Update original as well
+          setOriginalDeliveries(updatedDeliveries);
         } else {
           alert('納品データの削除に失敗しました。');
         }
@@ -280,7 +279,6 @@ export default function DeliveryRegisterPage() {
     }
   };
 
-  // New handleEdit function
   const handleEdit = (deliveryId: string) => {
     setDeliveries(prevDeliveries =>
       prevDeliveries.map(delivery =>
@@ -289,11 +287,9 @@ export default function DeliveryRegisterPage() {
     );
   };
 
-  // New handleSave function
   const handleSave = async (deliveryToSave: EditableDelivery) => {
     try {
-      // Remove isEditing before sending to API
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                  // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { isEditing, ...deliveryDataToSend } = deliveryToSave;
       const response = await fetch(`/api/delivery/${deliveryToSave.delivery_id}`, {
         method: 'PUT',
@@ -323,12 +319,11 @@ export default function DeliveryRegisterPage() {
     }
   };
 
-  // New handleCancel function
   const handleCancel = (deliveryId: string) => {
     setDeliveries(prevDeliveries =>
       prevDeliveries.map(delivery =>
         delivery.delivery_id === deliveryId
-          ? { ...originalDeliveries.find(d => d.delivery_id === deliveryId)!, isEditing: false }
+          ? { ...originalDeliveries.find(d => d.delivery_id === deliveryId)!, isEditing: false } 
           : delivery
       )
     );
@@ -336,22 +331,104 @@ export default function DeliveryRegisterPage() {
 
   const handleIssueDelivery = async (deliveryId: string) => {
     const deliveryToIssue = deliveries.find(d => d.delivery_id === deliveryId);
-    if (deliveryToIssue) {
-      const updatedDelivery: EditableDelivery = {
-        ...deliveryToIssue,
-        delivery_status: '済',
-        delivery_invoiceStatus: '済',
-      };
-      await handleSave(updatedDelivery);
+    const customer = customers.find(c => c.customer_name === deliveryToIssue?.customer_name);
+
+    if (!deliveryToIssue || !companyInfo || !customer) {
+      alert(`納品書発行に必要な情報が不足しています。
+会社情報または顧客情報が読み込まれていない可能性があります。`);
+      return;
+    }
+
+    const pdfData: DeliveryNotePdfProps = {
+      deliveryNoteNumber: deliveryToIssue.delivery_number || '未設定', // 納品書番号
+      deliveryDate: deliveryToIssue.delivery_date, // 納品日
+      companyInfo: {
+        name: companyInfo.company_name,
+        postalCode: companyInfo.company_postalCode,
+        address: companyInfo.company_address,
+        phone: companyInfo.company_phone,
+        fax: companyInfo.company_fax,
+        bankName: companyInfo.company_bankName,
+        branchName: companyInfo.company_bankBranch,
+        accountType: companyInfo.company_bankType,
+        accountNumber: companyInfo.company_bankNumber,
+        personInCharge: companyInfo.company_contactPerson,
+      },
+      customerInfo: {
+        code: customer.customer_id,
+        postalCode: customer.customer_postalCode,
+        address: customer.customer_address,
+        name: customer.customer_formalName || customer.customer_name, // 正式名称があればそれを使用
+      },
+      deliveryItems: [
+        {
+          productCode: deliveryToIssue.product_name,
+          quantity: deliveryToIssue.quantity,
+          unit: deliveryToIssue.delivery_unit,
+          unitPrice: deliveryToIssue.unit_price,
+          remarks: deliveryToIssue.delivery_note,
+        },
+      ],
+    };
+
+    try {
+      const response = await fetch('/api/delivery/generate-pdf', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(pdfData),
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `納品書_${deliveryToIssue.delivery_number || deliveryToIssue.delivery_id}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+        alert('納品書を生成しました。');
+
+        const updatedDelivery: EditableDelivery = {
+          ...deliveryToIssue,
+          delivery_status: '済',
+          delivery_invoiceStatus: '済',
+        };
+        await handleSave(updatedDelivery); // handleSave を呼び出してAPIを更新
+      } else {
+        console.error('Failed to generate PDF:', response.statusText);
+        alert('納品書生成に失敗しました。');
+      }
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('納品書生成中にエラーが発生しました。');
     }
   };
+
+  // 取引先名候補のフィルタリングとソート
+  const filteredAndSortedCustomers = customers
+    .filter(customer => {
+      const searchTermLower = customerSearchTerm.toLowerCase();
+      return (
+        customer.customer_name.toLowerCase().includes(searchTermLower) ||
+        (customer.customer_formalName && customer.customer_formalName.toLowerCase().includes(searchTermLower))
+      );
+    })
+    .sort((a, b) => a.customer_name.localeCompare(b.customer_name));
 
 
   const filteredAndSortedProducts = products
     .filter(product => {
       const matchesSearchTerm = product.product_name.toLowerCase().includes(productSearchTerm.toLowerCase());
       const selectedCustomerName = deliveryData.customer_name.trim().toLowerCase();
-      const productCustomerName = product.customer_name ? product.customer_name.trim().toLowerCase() : '';
+      // product.customer_name が undefined や null の場合を考慮
+      const productCustomerName = (product.customer_name || '').trim().toLowerCase(); // 修正箇所
+
+      // 取引先が選択されていない場合は、すべての商品を対象とする
+      // 取引先が選択されている場合は、商品の取引先名が選択された取引先名と一致する場合のみ対象とする
       const matchesCustomer = selectedCustomerName === '' || productCustomerName === selectedCustomerName;
 
       return matchesSearchTerm && matchesCustomer;
@@ -365,7 +442,13 @@ export default function DeliveryRegisterPage() {
     <AuthenticatedLayout>
       <div className="w-full mx-auto p-8">
         <h1 className="text-size-30 font-bold text-center mb-8">納品登録</h1>
-        <form onSubmit={handleSubmit} className="bg-white shadow-md rounded-lg p-8">
+        <form onSubmit={handleSubmit} className="bg-white shadow-md rounded-lg p-8"
+          onKeyDown={(e) => { // onKeyDown イベントハンドラを追加
+            if (e.key === 'Enter') {
+              e.preventDefault(); // Enterキーでのフォーム送信を防止
+            }
+          }}
+        >
 
           {/* 1行目: 納品日、納品税区分、注文番号、売上グループ */}
           <div className="flex flex-wrap -mx-2 mb-4">
@@ -389,6 +472,7 @@ export default function DeliveryRegisterPage() {
                 value={deliveryData.delivery_tax}
                 onChange={handleChange}
                 className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                inputMode="numeric" // 追加
               />
             </div>
             <div className="w-full md:w-1/4 px-2 mb-4 md:mb-0">
@@ -400,6 +484,7 @@ export default function DeliveryRegisterPage() {
                 value={deliveryData.delivery_orderId}
                 onChange={handleChange}
                 className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                inputMode="text" // 追加
               />
             </div>
             <div className="w-full md:w-1/4 px-2">
@@ -415,23 +500,37 @@ export default function DeliveryRegisterPage() {
             </div>
           </div>
 
-          {/* 取引先名 */}
-          <div className="mb-4">
+          {/* 取引先名 - インクリメンタルサーチに変更 */}
+          <div className="mb-4 relative">
             <label htmlFor="customer_name" className="block text-gray-700 text-sm font-bold mb-2">取引先名</label>
-            <select
+            <input
+              type="text"
               id="customer_name"
               name="customer_name"
-              value={deliveryData.customer_name}
-              onChange={handleCustomerChange}
+              value={customerSearchTerm} // customerSearchTerm にバインド
+              onChange={handleCustomerSearchChange} // 新しいハンドラ
+              onFocus={() => setShowCustomerSuggestions(true)} // フォーカス時に候補を表示
+              onBlur={() => setTimeout(() => setShowCustomerSuggestions(false), 100)} // フォーカスが外れたら少し遅れて非表示
+              placeholder="取引先名を検索"
               className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-            >
-              <option value="">取引先を選択してください</option>
-              {customers.map(customer => (
-                <option key={customer.customer_id} value={customer.customer_name}>
-                  {customer.customer_name}
-                </option>
-              ))}
-            </select>
+            />
+            {showCustomerSuggestions && customerSearchTerm && ( // 入力があり、候補表示が有効な場合のみ表示
+              <ul className="absolute z-10 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto mt-1">
+                {filteredAndSortedCustomers.length > 0 ? (
+                  filteredAndSortedCustomers.map(customer => (
+                    <li
+                      key={customer.customer_id}
+                      onMouseDown={() => handleCustomerSelect(customer)}
+                      className="px-3 py-2 cursor-pointer hover:bg-gray-100"
+                    >
+                      {customer.customer_name} {customer.customer_formalName ? `(${customer.customer_formalName})` : ''}
+                    </li>
+                  ))
+                ) : (
+                  <li className="px-3 py-2 text-gray-500">取引先が見つかりません</li>
+                )}
+              </ul>
+            )}
           </div>
 
           {/* 納品品番入力方法 */}
@@ -502,7 +601,7 @@ export default function DeliveryRegisterPage() {
                   id="delivery_name_input"
                   name="product_name"
                   value={deliveryData.product_name}
-                  onChange={handleProductNameChange}
+                  onChange={handleChange}
                   placeholder="自由入力"
                   className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                 />
@@ -521,6 +620,7 @@ export default function DeliveryRegisterPage() {
                 value={deliveryData.quantity}
                 onChange={handleChange}
                 className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                inputMode="numeric" // 追加
               />
             </div>
             <div className="w-full md:w-1/4 px-2 mb-4 md:mb-0">
@@ -532,6 +632,7 @@ export default function DeliveryRegisterPage() {
                 value={deliveryData.unit_price}
                 onChange={handleChange}
                 className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                inputMode="numeric" // 追加
               />
             </div>
             <div className="w-full md:w-1/4 px-2 mb-4 md:mb-0">
@@ -582,6 +683,7 @@ export default function DeliveryRegisterPage() {
                 value={deliveryData.delivery_shippingPostalcode}
                 onChange={handleChange}
                 className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                inputMode="numeric" // 追加
               />
             </div>
             <div className="w-full md:w-1/2 px-2">
@@ -593,6 +695,7 @@ export default function DeliveryRegisterPage() {
                 value={deliveryData.delivery_shippingPhone}
                 onChange={handleChange}
                 className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                inputMode="tel" // 追加
               />
             </div>
           </div>
@@ -649,10 +752,10 @@ export default function DeliveryRegisterPage() {
                 <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">注文番号</th>
                 <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">売上グループ</th>
                 <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">取引先名</th>
-                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">納品先名</th> {/* 新規追加 */}
-                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">納品先〒</th> {/* 新規追加 */}
-                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">納品先住所</th> {/* 新規追加 */}
-                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">納品先電話</th> {/* 新規追加 */}
+                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">納品先名</th>
+                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">納品先〒</th>
+                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">納品先住所</th>
+                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">納品先電話</th>
                 <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">納品書番号</th>
                 <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">請求書番号</th>
                 <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">納品書ステータス</th>
@@ -770,17 +873,12 @@ export default function DeliveryRegisterPage() {
                   </td>
                   <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">
                     {delivery.isEditing ? (
-                      <select
+                      <input
+                        type="text"
                         value={delivery.customer_name}
                         onChange={(e) => handleEditChange(e, delivery.delivery_id, 'customer_name')}
                         className="w-full p-1 border rounded"
-                      >
-                        {customers.map(customer => (
-                          <option key={customer.customer_id} value={customer.customer_name}>
-                            {customer.customer_name}
-                          </option>
-                        ))}
-                      </select>
+                      />
                     ) : (
                       delivery.customer_name
                     )}
@@ -963,6 +1061,3 @@ export default function DeliveryRegisterPage() {
     </AuthenticatedLayout>
   );
 }
-
-
-  

@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs/promises';
 import path from 'path';
 
-const DATA_FILE_PATH = path.join(process.cwd(), 'data', 'company_info.json');
+// DATA_FILE_PATH のパスを修正
+const DATA_FILE_PATH = path.join(process.cwd(), 'public', 'data', 'company_info.json');
 
 // Helper function to read company info from file
 async function readCompanyInfo() {

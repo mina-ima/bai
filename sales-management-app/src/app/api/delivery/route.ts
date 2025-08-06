@@ -1,42 +1,53 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs/promises';
+import { promises as fs } from 'fs';
 import path from 'path';
 import { Delivery } from '@/types/delivery';
 
-const dataFilePath = path.join(process.cwd(), 'data', 'delivery_list.json');
+const dataFilePath = path.join(process.cwd(), 'public', 'data', 'delivery_list.json');
 
 async function readData(): Promise<Delivery[]> {
   try {
     const data = await fs.readFile(dataFilePath, 'utf-8');
+    console.log('readData: File content read successfully.');
     return JSON.parse(data);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      console.log('readData: File not found, returning empty array.');
       return [];
     }
+    console.error('readData: Error reading data:', error);
     throw error;
   }
 }
 
 async function writeData(data: Delivery[]): Promise<void> {
+  console.log('writeData: Writing data to file:', JSON.stringify(data, null, 2));
   await fs.writeFile(dataFilePath, JSON.stringify(data, null, 2));
+  console.log('writeData: Data written successfully.');
 }
 
 function generateNextId(prefix: string, existingData: Delivery[], idField: keyof Delivery): string {
-  let maxSequentialId = 0;
+  console.log('generateNextId: existingData received:', existingData.map(d => d[idField]));
+  let maxIdNum = 0;
   const regex = new RegExp(`^${prefix}(\\d{9})$`); // Regex to match prefix + 9 digits
   for (const data of existingData) {
     const currentId = data[idField] as string;
+    console.log(`generateNextId: Processing ID: ${currentId}`); // Added log
     const match = currentId.match(regex);
+    console.log(`generateNextId: Regex match result for ${currentId}:`, match); // Added log
     if (match) {
       const idNum = parseInt(match[1], 10);
-      if (!isNaN(idNum) && idNum > maxSequentialId) {
-        maxSequentialId = idNum;
+      console.log(`generateNextId: Parsed idNum for ${currentId}:`, idNum); // Added log
+      if (!isNaN(idNum) && idNum > maxIdNum) {
+        maxIdNum = idNum;
       }
     }
   }
-  const nextId = maxSequentialId + 1;
-  const paddedId = String(nextId).padStart(9, '0');
-  return prefix + paddedId; // Using string concatenation to avoid template literal issues
+  const nextIdNum = maxIdNum + 1;
+  const paddedId = String(nextIdNum).padStart(9, '0');
+  const newId = prefix + paddedId;
+  console.log('generateNextId: Generated new ID:', newId, 'from maxIdNum:', maxIdNum);
+  return newId;
 }
 
 export async function POST(request: Request) {

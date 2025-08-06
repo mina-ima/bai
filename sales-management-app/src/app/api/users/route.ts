@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import fs from 'fs/promises';
 import path from 'path';
 
-const usersFilePath = path.join(process.cwd(), 'data', 'user_list.json');
+// usersFilePath のパスを修正
+const usersFilePath = path.join(process.cwd(), 'public', 'data', 'user_list.json');
 
 async function readUsers() {
   try {

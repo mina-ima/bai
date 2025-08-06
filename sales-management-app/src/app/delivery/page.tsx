@@ -1,27 +1,25 @@
-
 'use client';
 
-import AuthenticatedLayout from '@/components/AuthenticatedLayout';
+import React from 'react';
 import Link from 'next/link';
+import AuthenticatedLayout from '@/components/AuthenticatedLayout';
 
-export default function DeliveryPage() {
+const DeliveryIndexPage: React.FC = () => {
   return (
     <AuthenticatedLayout>
-      <div className="w-full mx-auto p-8">
-        <h1 className="text-size-30 font-bold text-center mb-8">納品管理</h1>
-        <div className="flex justify-center space-x-8">
-          <Link href="/delivery/register" passHref>
-            <button className="w-64 h-24 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 text-2xl">
-              納品登録
-            </button>
+      <div className="flex flex-col items-center min-h-screen pt-8">
+        <h1 className="text-4xl font-bold mb-8">納品機能</h1>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Link href="/delivery/register" className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-lg shadow-lg text-center text-xl transition duration-300 ease-in-out transform hover:scale-105">
+            納品登録
           </Link>
-          <Link href="/delivery/search" passHref>
-            <button className="w-64 h-24 bg-green-600 text-white font-semibold rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 text-2xl">
-              納品検索
-            </button>
+          <Link href="/delivery/search" className="bg-green-500 hover:bg-green-700 text-white font-bold py-4 px-8 rounded-lg shadow-lg text-center text-xl transition duration-300 ease-in-out transform hover:scale-105">
+            納品検索
           </Link>
         </div>
       </div>
     </AuthenticatedLayout>
   );
-}
+};
+
+export default DeliveryIndexPage;

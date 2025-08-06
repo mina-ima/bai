@@ -4,8 +4,8 @@ import path from 'path';
 import { Product } from '@/types/product';
 import { getNextProductId } from '@/lib/productUtils';
 
-const PRODUCT_LIST_PATH = path.join(process.cwd(), 'data', 'product_list.json');
-
+// PRODUCT_LIST_PATH のパスを修正
+const PRODUCT_LIST_PATH = path.join(process.cwd(), 'public', 'data', 'product_list.json');
 
 
 async function readProductsFile(): Promise<Product[]> {
@@ -53,6 +53,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Failed to create product' }, { status: 500 });
   }
 }
-
-
-
