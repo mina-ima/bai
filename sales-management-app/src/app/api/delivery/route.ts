@@ -9,7 +9,13 @@ async function readData(): Promise<Delivery[]> {
   try {
     const data = await fs.readFile(dataFilePath, 'utf-8');
     console.log('readData: File content read successfully.');
-    return JSON.parse(data);
+    return JSON.parse(data).map((delivery: Delivery) => ({
+      ...delivery,
+      total_amount: typeof delivery.total_amount === 'string' && delivery.total_amount === '' ? 0 : Number(delivery.total_amount),
+      quantity: Number(delivery.quantity),
+      unit_price: Number(delivery.unit_price),
+      delivery_tax: Number(delivery.delivery_tax),
+    }));
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
       console.log('readData: File not found, returning empty array.');

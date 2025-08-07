@@ -80,21 +80,14 @@ export default function DeliverySearchPage() {
     delivery_invoiceDate_to: '',
   });
 
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setSearchParams(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    fetchDeliveries();
-  };
+  // デバウンス処理用のstate
+  const [debouncedSearchParams, setDebouncedSearchParams] = useState(searchParams);
 
   const fetchDeliveries = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const query = new URLSearchParams(searchParams).toString();
+      const query = new URLSearchParams(debouncedSearchParams).toString();
       const response = await fetch(`/api/delivery?${query}`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -109,28 +102,32 @@ export default function DeliverySearchPage() {
     } finally {
       setLoading(false);
     }
+  }, [debouncedSearchParams]);
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setSearchParams(prev => ({ ...prev, [name]: value }));
+  };
+
+  // searchParamsが変更されたらdebouncedSearchParamsを更新（デバウンス）
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchParams(searchParams);
+    }, 500); // 500msのデバウンス
+
+    return () => {
+      clearTimeout(handler);
+    };
   }, [searchParams]);
 
+  // debouncedSearchParamsが変更されたら検索を実行
   useEffect(() => {
-    const fetchInitialData = async () => {
-      try {
-        const [customersRes, companyInfoRes] = await Promise.all([
-          fetch('/api/customers'),
-          fetch('/data/company_info.json'),
-        ]);
-        const customersData = await customersRes.json();
-        const companyData = await companyInfoRes.json();
-
-        setCustomers(customersData);
-        setCompanyInfo(companyData);
-      } catch (error: any) {
-        console.error("Failed to fetch initial data:", error);
-        setError(error.message);
-      }
-    };
-    fetchInitialData();
     fetchDeliveries();
-  }, [fetchDeliveries]);
+  }, [debouncedSearchParams, fetchDeliveries]);
+
+  useEffect(() => {
+    fetchDeliveries();
+  }, [debouncedSearchParams, fetchDeliveries]);
 
   const handleEditChange = useCallback((
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
@@ -400,7 +397,7 @@ ${alreadyIssued.join(', ')}
         <h1 className="text-size-30 font-bold text-center mb-8">納品検索</h1>
 
         {/* 検索フォーム */}
-        <form onSubmit={handleSearchSubmit} className="bg-white shadow-md rounded-lg p-6 mb-8">
+        <form className="bg-white shadow-md rounded-lg p-6 mb-8">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* 納品書番号 */}
             <div>

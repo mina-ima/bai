@@ -3,9 +3,9 @@ import fs from 'fs/promises';
 import path from 'path';
 import { parse } from 'csv-parse/sync';
 import { getNextProductId } from '@/lib/productUtils';
-import iconv from 'iconv-lite';
 
-const DATA_DIR = path.join(process.cwd(), 'data');
+
+const DATA_DIR = path.join(process.cwd(), 'public', 'data');
 
 // 各データタイプのファイルパスとIDフィールドの定義
 const DATA_CONFIG: { [key: string]: { filePath: string; idField: string; } } = {
@@ -13,6 +13,7 @@ const DATA_CONFIG: { [key: string]: { filePath: string; idField: string; } } = {
   customer_list: { filePath: path.join(DATA_DIR, 'customer_list.json'), idField: 'customer_id' },
   product_list: { filePath: path.join(DATA_DIR, 'product_list.json'), idField: 'product_id' },
   user_list: { filePath: path.join(DATA_DIR, 'user_list.json'), idField: 'user_id' },
+  delivery_list: { filePath: path.join(DATA_DIR, 'delivery_list.json'), idField: 'delivery_id' },
 };
 
 async function readJsonFile(filePath: string): Promise<any[]> {
@@ -47,9 +48,9 @@ export async function POST(req: NextRequest) {
     }
 
     const fileBuffer = Buffer.from(await file.arrayBuffer());
-    const utf8String = iconv.decode(fileBuffer, 'Shift_JIS');
+    const csvString = fileBuffer.toString('utf8');
 
-    const records = parse(utf8String, { 
+    const records = parse(csvString, { 
       columns: true, 
       skip_empty_lines: true, 
       trim: true, 
@@ -76,6 +77,30 @@ export async function POST(req: NextRequest) {
           product_unitPrice: (record as any).product_unitPrice ? parseFloat((record as any).product_unitPrice) : 0,
           product_tax: (record as any).product_tax ? parseInt((record as any).product_tax, 10) : 0,
         };
+      } else if (dataType === 'delivery_list') {
+        // Temporarily store parsed numeric values
+        const parsedQuantity = (record as any).quantity ? parseInt((record as any).quantity, 10) : 0;
+        const parsedUnitPrice = (record as any).unit_price ? parseFloat((record as any).unit_price) : 0;
+        const parsedDeliveryTax = (record as any).delivery_tax ? parseInt((record as any).delivery_tax, 10) : 0;
+        const parsedTotalAmount = (record as any).total_amount ? parseFloat((record as any).total_amount) : 0;
+        const parsedDeliveryQuantity = (record as any).delivery_quantity ? parseInt((record as any).delivery_quantity, 10) : 0;
+        const parsedDeliveryTotalPrice = (record as any).delivery_total_price ? parseFloat((record as any).delivery_total_price) : 0;
+
+        record = {
+          ...(record as any),
+          quantity: parsedQuantity,
+          unit_price: parsedUnitPrice,
+          delivery_tax: parsedDeliveryTax,
+          delivery_quantity: parsedDeliveryQuantity,
+          delivery_total_price: parsedDeliveryTotalPrice,
+        };
+
+        // total_amountがNaN、0、または空欄の場合、unit_price * quantityで計算
+        if (isNaN(parsedTotalAmount) || parsedTotalAmount === 0) {
+          (record as any).total_amount = parsedUnitPrice * parsedQuantity;
+        } else {
+          (record as any).total_amount = parsedTotalAmount;
+        }
       }
 
       let id = (record as any)[config.idField];

@@ -8,6 +8,7 @@ const DATA_TYPES = [
   { id: 'customer_list', name: '取引先リスト' },
   { id: 'product_list', name: '商品リスト' },
   { id: 'user_list', name: 'ユーザーリスト' },
+  { id: 'delivery_list', name: '納品リスト' },
 ];
 
 export default function ImportPage() {
