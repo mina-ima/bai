@@ -65,9 +65,94 @@ export async function POST(request: Request) {
   }
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const allData = await readData();
+    const { searchParams } = new URL(request.url);
+    let allData = await readData();
+
+    // フィルタリングロジック
+    allData = allData.filter(delivery => {
+      // 納品ID
+      const deliveryId = searchParams.get('delivery_id');
+      if (deliveryId && !delivery.delivery_id.includes(deliveryId)) return false;
+
+      // 納品品番
+      const productName = searchParams.get('product_name');
+      if (productName && !delivery.product_name.includes(productName)) return false;
+
+      // 納品数量 (From/To)
+      const quantityFrom = searchParams.get('quantity_from');
+      const quantityTo = searchParams.get('quantity_to');
+      if (quantityFrom && delivery.quantity < parseFloat(quantityFrom)) return false;
+      if (quantityTo && delivery.quantity > parseFloat(quantityTo)) return false;
+
+      // 納品単価 (From/To)
+      const unitPriceFrom = searchParams.get('unit_price_from');
+      const unitPriceTo = searchParams.get('unit_price_to');
+      if (unitPriceFrom && delivery.unit_price < parseFloat(unitPriceFrom)) return false;
+      if (unitPriceTo && delivery.unit_price > parseFloat(unitPriceTo)) return false;
+
+      // 合計金額 (From/To)
+      const totalAmountFrom = searchParams.get('total_amount_from');
+      const totalAmountTo = searchParams.get('total_amount_to');
+      if (totalAmountFrom && delivery.total_amount < parseFloat(totalAmountFrom)) return false;
+      if (totalAmountTo && delivery.total_amount > parseFloat(totalAmountTo)) return false;
+
+      // 納品備考
+      const deliveryNote = searchParams.get('delivery_note');
+      if (deliveryNote && !delivery.delivery_note.includes(deliveryNote)) return false;
+
+      // 納品税区分
+      const deliveryTax = searchParams.get('delivery_tax');
+      if (deliveryTax && delivery.delivery_tax !== parseFloat(deliveryTax)) return false;
+
+      // 注文番号
+      const orderId = searchParams.get('delivery_orderId');
+      if (orderId && !delivery.delivery_orderId.includes(orderId)) return false;
+
+      // 売上グループ
+      const salesGroup = searchParams.get('delivery_salesGroup');
+      if (salesGroup && !delivery.delivery_salesGroup.includes(salesGroup)) return false;
+
+      // 取引先名
+      const customerName = searchParams.get('customer_name');
+      if (customerName && !delivery.customer_name.includes(customerName)) return false;
+
+      // 納品先名
+      const shippingName = searchParams.get('delivery_shippingName');
+      if (shippingName && !delivery.delivery_shippingName.includes(shippingName)) return false;
+
+      // 納品書番号
+      const deliveryNumber = searchParams.get('delivery_number');
+      if (deliveryNumber && !delivery.delivery_number.includes(deliveryNumber)) return false;
+
+      // 請求書番号
+      const invoiceNumber = searchParams.get('delivery_invoiceNumber');
+      if (invoiceNumber && !delivery.delivery_invoiceNumber.includes(invoiceNumber)) return false;
+
+      // 納品書ステータス
+      const deliveryStatus = searchParams.get('delivery_status');
+      if (deliveryStatus && delivery.delivery_status !== deliveryStatus) return false;
+
+      // 請求書ステータス
+      const invoiceStatus = searchParams.get('delivery_invoiceStatus');
+      if (invoiceStatus && delivery.delivery_invoiceStatus !== invoiceStatus) return false;
+
+      // 納品日 (From/To)
+      const deliveryDateFrom = searchParams.get('delivery_date_from');
+      const deliveryDateTo = searchParams.get('delivery_date_to');
+      if (deliveryDateFrom && delivery.delivery_date < deliveryDateFrom) return false;
+      if (deliveryDateTo && delivery.delivery_date > deliveryDateTo) return false;
+
+      // 請求日 (From/To)
+      const invoiceDateFrom = searchParams.get('delivery_invoiceDate_from');
+      const invoiceDateTo = searchParams.get('delivery_invoiceDate_to');
+      if (invoiceDateFrom && delivery.delivery_invoiceDate < invoiceDateFrom) return false;
+      if (invoiceDateTo && delivery.delivery_invoiceDate > invoiceDateTo) return false;
+
+      return true;
+    });
+
     return NextResponse.json(allData);
   } catch (error: any) {
     console.error('Error reading data:', error);
@@ -93,6 +178,10 @@ export async function PUT(request: Request) {
     }
 
     // Update the existing delivery with new data, but keep the original delivery_id
+    // If delivery_number is empty, generate a new one
+    if (!updatedData.delivery_number) {
+      updatedData.delivery_number = generateNextId('DN', allData, 'delivery_number');
+    }
     allData[index] = { ...allData[index], ...updatedData, delivery_id: deliveryId };
 
     await writeData(allData);

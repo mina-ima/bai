@@ -36,6 +36,8 @@ export interface DeliveryNotePdfProps {
   companyInfo: CompanyInfo;
   customerInfo: CustomerInfo;
   deliveryItems: DeliveryItem[];
+  currentPage?: number; // 現在のページ番号
+  totalPages?: number; // 総ページ数
 }
 
 const BORDER_STYLE = '1px solid #000';
@@ -165,7 +167,7 @@ const styles = StyleSheet.create({
 });
 
 const DeliveryNoteSection: React.FC<{ data: DeliveryNotePdfProps; type: '控' | '' }> = ({ data, type }) => {
-  const { deliveryNoteNumber, deliveryDate, companyInfo, customerInfo, deliveryItems } = data;
+  const { deliveryNoteNumber, deliveryDate, companyInfo, customerInfo, deliveryItems, currentPage, totalPages } = data;
 
   const tableHeaders = ['品番', '数量', '単位', '単価', '金額', '備考'];
 
@@ -182,7 +184,7 @@ const DeliveryNoteSection: React.FC<{ data: DeliveryNotePdfProps; type: '控' | 
     <View style={styles.section}>
       {/* 納品書タイトルと右上の情報 */}
       <View style={styles.topSection}>
-        <Text style={styles.mainTitle}>納品書{type ? `(${type})` : ''}</Text>
+        <Text style={styles.mainTitle}>納品書{type ? `(${type})` : ''}{currentPage && totalPages ? ` (${currentPage}/${totalPages}ページ)` : ''}</Text>
         <View style={styles.topRightInfo}>
           <Text style={styles.text}>納品書No.: {deliveryNoteNumber}</Text>
           <Text style={styles.text}>{deliveryDate}</Text>

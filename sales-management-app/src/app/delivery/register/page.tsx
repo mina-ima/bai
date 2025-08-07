@@ -287,11 +287,11 @@ export default function DeliveryRegisterPage() {
     );
   };
 
-  const handleSave = async (deliveryToSave: EditableDelivery) => {
+  const handleSave = async (deliveryToSave: EditableDelivery): Promise<Delivery> => {
     try {
                   // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { isEditing, ...deliveryDataToSend } = deliveryToSave;
-      const response = await fetch(`/api/delivery/${deliveryToSave.delivery_id}`, {
+      const response = await fetch(`/api/delivery?delivery_id=${deliveryToSave.delivery_id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -302,20 +302,25 @@ export default function DeliveryRegisterPage() {
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
+
+      const savedDelivery: Delivery = await response.json();
+
       setDeliveries(prevDeliveries =>
         prevDeliveries.map(delivery =>
-          delivery.delivery_id === deliveryToSave.delivery_id ? { ...deliveryToSave, isEditing: false } : delivery
+          delivery.delivery_id === savedDelivery.delivery_id ? { ...savedDelivery, isEditing: false } : delivery
         )
       );
       setOriginalDeliveries(prevOriginal =>
         prevOriginal.map(delivery =>
-          delivery.delivery_id === deliveryToSave.delivery_id ? { ...deliveryToSave, isEditing: false } : delivery
+          delivery.delivery_id === savedDelivery.delivery_id ? { ...savedDelivery, isEditing: false } : delivery
         )
       );
       alert('納品データが更新されました。');
+      return savedDelivery;
     } catch (e: any) {
       setErrorDeliveries(e.message);
       alert(`納品データの更新に失敗しました: ${e.message}`);
+      throw e;
     }
   };
 
@@ -339,39 +344,47 @@ export default function DeliveryRegisterPage() {
       return;
     }
 
-    const pdfData: DeliveryNotePdfProps = {
-      deliveryNoteNumber: deliveryToIssue.delivery_number || '未設定', // 納品書番号
-      deliveryDate: deliveryToIssue.delivery_date, // 納品日
-      companyInfo: {
-        name: companyInfo.company_name,
-        postalCode: companyInfo.company_postalCode,
-        address: companyInfo.company_address,
-        phone: companyInfo.company_phone,
-        fax: companyInfo.company_fax,
-        bankName: companyInfo.company_bankName,
-        branchName: companyInfo.company_bankBranch,
-        accountType: companyInfo.company_bankType,
-        accountNumber: companyInfo.company_bankNumber,
-        personInCharge: companyInfo.company_contactPerson,
-      },
-      customerInfo: {
-        code: customer.customer_id,
-        postalCode: customer.customer_postalCode,
-        address: customer.customer_address,
-        name: customer.customer_formalName || customer.customer_name, // 正式名称があればそれを使用
-      },
-      deliveryItems: [
-        {
-          productCode: deliveryToIssue.product_name,
-          quantity: deliveryToIssue.quantity,
-          unit: deliveryToIssue.delivery_unit,
-          unitPrice: deliveryToIssue.unit_price,
-          remarks: deliveryToIssue.delivery_note,
-        },
-      ],
-    };
-
     try {
+      // まず納品ステータスを更新し、サーバーから最新のデータ（納品書番号を含む）を取得
+      const updatedDelivery: EditableDelivery = {
+        ...deliveryToIssue,
+        delivery_status: '済',
+        // delivery_invoiceStatus は納品書発行では更新しない
+      };
+      const savedDelivery = await handleSave(updatedDelivery); // 更新されたデータを取得
+
+      const pdfData: DeliveryNotePdfProps = {
+        deliveryNoteNumber: savedDelivery.delivery_number || '未設定', // 更新された納品書番号を使用
+        deliveryDate: savedDelivery.delivery_date, // 納品日
+        companyInfo: {
+          name: companyInfo.company_name,
+          postalCode: companyInfo.company_postalCode,
+          address: companyInfo.company_address,
+          phone: companyInfo.company_phone,
+          fax: companyInfo.company_fax,
+          bankName: companyInfo.company_bankName,
+          branchName: companyInfo.company_bankBranch,
+          accountType: companyInfo.company_bankType,
+          accountNumber: companyInfo.company_bankNumber,
+          personInCharge: companyInfo.company_contactPerson,
+        },
+        customerInfo: {
+          code: customer.customer_id,
+          postalCode: customer.customer_postalCode,
+          address: customer.customer_address,
+          name: customer.customer_formalName || customer.customer_name, // 正式名称があればそれを使用
+        },
+        deliveryItems: [
+          {
+            productCode: savedDelivery.product_name,
+            quantity: savedDelivery.quantity,
+            unit: savedDelivery.delivery_unit,
+            unitPrice: savedDelivery.unit_price,
+            remarks: savedDelivery.delivery_note,
+          },
+        ],
+      };
+
       const response = await fetch('/api/delivery/generate-pdf', {
         method: 'POST',
         headers: {
@@ -385,26 +398,19 @@ export default function DeliveryRegisterPage() {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `納品書_${deliveryToIssue.delivery_number || deliveryToIssue.delivery_id}.pdf`;
+        a.download = `納品書_${savedDelivery.delivery_number || savedDelivery.delivery_id}.pdf`; // 更新された納品書番号を使用
         document.body.appendChild(a);
         a.click();
         a.remove();
         window.URL.revokeObjectURL(url);
         alert('納品書を生成しました。');
-
-        const updatedDelivery: EditableDelivery = {
-          ...deliveryToIssue,
-          delivery_status: '済',
-          delivery_invoiceStatus: '済',
-        };
-        await handleSave(updatedDelivery); // handleSave を呼び出してAPIを更新
       } else {
         console.error('Failed to generate PDF:', response.statusText);
         alert('納品書生成に失敗しました。');
       }
     } catch (error) {
-      console.error('Error generating PDF:', error);
-      alert('納品書生成中にエラーが発生しました。');
+      console.error('Error generating PDF or updating delivery status:', error);
+      alert('納品書生成またはデータ更新中にエラーが発生しました。');
     }
   };
 
