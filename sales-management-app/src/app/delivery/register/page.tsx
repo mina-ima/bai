@@ -35,6 +35,8 @@ export default function DeliveryRegisterPage() {
   const [originalDeliveries, setOriginalDeliveries] = useState<EditableDelivery[]>([]);
   const [loadingDeliveries, setLoadingDeliveries] = useState(true);
   const [errorDeliveries, setErrorDeliveries] = useState<string | null>(null);
+  const [sortConfig, setSortConfig] = useState<{ key: keyof Delivery | null; direction: 'ascending' | 'descending' | null }>({ key: null, direction: null });
+  const [filters, setFilters] = useState<Record<keyof Delivery, string>>({} as Record<keyof Delivery, string>);
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null); // 会社情報を追加
   const [deliveryData, setDeliveryData] = useState<Delivery>({
     delivery_id: '',
@@ -143,23 +145,24 @@ export default function DeliveryRegisterPage() {
     field: keyof Delivery
   ) => {
     const { value } = e.target;
+    console.log(`handleEditChange: deliveryId=${deliveryId}, field=${String(field)}, value=${value}`);
     setDeliveries(prevDeliveries =>
-      prevDeliveries.map(delivery =>
-        delivery.delivery_id === deliveryId
-          ? {
-              ...delivery,
-              [field]:
-                field === 'quantity' || field === 'unit_price' || field === 'delivery_tax'
-                  ? parseFloat(value)
-                  : value,
-              total_amount:
-                field === 'quantity' || field === 'unit_price'
-                  ? (field === 'quantity' ? parseFloat(value) : delivery.quantity) *
-                    (field === 'unit_price' ? parseFloat(value) : delivery.unit_price)
-                  : delivery.total_amount,
-            }
-          : delivery
-      )
+      prevDeliveries.map(delivery => {
+        if (delivery.delivery_id === deliveryId) {
+          const updatedDelivery = {
+            ...delivery,
+            [field]:
+              field === 'quantity' || field === 'unit_price' || field === 'delivery_tax'
+                ? parseFloat(value)
+                : value,
+          };
+          // total_amount の計算を更新された値に基づいて行う
+          updatedDelivery.total_amount = updatedDelivery.quantity * updatedDelivery.unit_price;
+          console.log(`handleEditChange: Updated delivery for ${deliveryId}:`, updatedDelivery);
+          return updatedDelivery;
+        }
+        return delivery;
+      })
     );
   };
 
@@ -291,6 +294,7 @@ export default function DeliveryRegisterPage() {
     try {
                   // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { isEditing, ...deliveryDataToSend } = deliveryToSave;
+      console.log('handleSave: Sending deliveryDataToSend:', deliveryDataToSend);
       const response = await fetch(`/api/delivery?delivery_id=${deliveryToSave.delivery_id}`, {
         method: 'PUT',
         headers: {
@@ -304,6 +308,7 @@ export default function DeliveryRegisterPage() {
       }
 
       const savedDelivery: Delivery = await response.json();
+      console.log('handleSave: Received savedDelivery:', savedDelivery);
 
       setDeliveries(prevDeliveries =>
         prevDeliveries.map(delivery =>
@@ -390,7 +395,13 @@ export default function DeliveryRegisterPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(pdfData),
+        body: JSON.stringify({
+          deliveries: pdfData.deliveryItems,
+          companyInfo: pdfData.companyInfo,
+          customers: [pdfData.customerInfo],
+          delivery_number: savedDelivery.delivery_number,
+          delivery_date: savedDelivery.delivery_date,
+        }),
       });
 
       if (response.ok) {
@@ -440,6 +451,57 @@ export default function DeliveryRegisterPage() {
       return matchesSearchTerm && matchesCustomer;
     })
     .sort((a, b) => a.product_name.localeCompare(b.product_name));
+
+  const handleSort = (key: keyof Delivery) => {
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const handleFilterChange = (key: keyof Delivery, value: string) => {
+    setFilters(prevFilters => ({
+      ...prevFilters,
+      [key]: value,
+    }));
+  };
+
+  const filteredAndSortedDeliveries = [...deliveries]
+    .filter(delivery => {
+      return Object.keys(filters).every(key => {
+        const filterValue = filters[key as keyof Delivery];
+        if (!filterValue) return true;
+        const deliveryValue = String(delivery[key as keyof Delivery]);
+        return deliveryValue.toLowerCase().includes(filterValue.toLowerCase());
+      });
+    })
+    .sort((a, b) => {
+      if (sortConfig.key) {
+        const aValue = a[sortConfig.key];
+        const bValue = b[sortConfig.key];
+
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+          return sortConfig.direction === 'ascending'
+            ? aValue.localeCompare(bValue)
+            : bValue.localeCompare(aValue);
+        } else if (typeof aValue === 'number' && typeof bValue === 'number') {
+          return sortConfig.direction === 'ascending' ? aValue - bValue : bValue - aValue;
+        } else if (typeof aValue === 'boolean' && typeof bValue === 'boolean') {
+          return sortConfig.direction === 'ascending'
+            ? (aValue === bValue ? 0 : aValue ? -1 : 1)
+            : (aValue === bValue ? 0 : aValue ? 1 : -1);
+        } else {
+          // Fallback for mixed types or unsupported types
+          const aString = String(aValue);
+          const bString = String(bValue);
+          return sortConfig.direction === 'ascending'
+            ? aString.localeCompare(bString)
+            : bString.localeCompare(aString);
+        }
+      }
+      return 0;
+    });
 
   if (loadingDeliveries) return <p>納品データを読み込み中...</p>;
   if (errorDeliveries) return <p>エラー: {errorDeliveries}</p>;
@@ -747,34 +809,97 @@ export default function DeliveryRegisterPage() {
           <table className="min-w-full border-collapse border border-gray-300">
             <thead>
               <tr className="bg-blue-600">
-                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">納品ID</th>
-                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">納品品番</th>
-                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">納品数量</th>
-                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">納品単価</th>
-                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">合計金額</th>
-                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">納品単位</th>
-                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">納品備考</th>
-                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">納品税区分</th>
-                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">注文番号</th>
-                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">売上グループ</th>
-                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">取引先名</th>
-                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">納品先名</th>
-                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">納品先〒</th>
-                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">納品先住所</th>
-                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">納品先電話</th>
-                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">納品書番号</th>
-                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">請求書番号</th>
-                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">納品書ステータス</th>
-                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">請求書ステータス</th>
-                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">納品日</th>
-                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap">請求日</th>
+                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap cursor-pointer" onClick={() => handleSort('delivery_id')}>
+                  納品ID {sortConfig.key === 'delivery_id' ? (sortConfig.direction === 'ascending' ? ' ⬆️' : ' ⬇️') : ''}
+                  <br /><input type="text" placeholder="Filter" value={filters.delivery_id || ''} onChange={(e) => handleFilterChange('delivery_id', e.target.value)} className="mt-1 p-1 w-full text-gray-800 rounded text-xs" onClick={(e) => e.stopPropagation()} />
+                </th>
+                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap cursor-pointer" onClick={() => handleSort('product_name')}>
+                  納品品番 {sortConfig.key === 'product_name' ? (sortConfig.direction === 'ascending' ? ' ⬆️' : ' ⬇️') : ''}
+                  <br /><input type="text" placeholder="Filter" value={filters.product_name || ''} onChange={(e) => handleFilterChange('product_name', e.target.value)} className="mt-1 p-1 w-full text-gray-800 rounded text-xs" onClick={(e) => e.stopPropagation()} />
+                </th>
+                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap cursor-pointer" onClick={() => handleSort('quantity')}>
+                  納品数量 {sortConfig.key === 'quantity' ? (sortConfig.direction === 'ascending' ? ' ⬆️' : ' ⬇️') : ''}
+                  <br /><input type="number" placeholder="Filter" value={filters.quantity || ''} onChange={(e) => handleFilterChange('quantity', e.target.value)} className="mt-1 p-1 w-full text-gray-800 rounded text-xs" onClick={(e) => e.stopPropagation()} />
+                </th>
+                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap cursor-pointer" onClick={() => handleSort('unit_price')}>
+                  納品単価 {sortConfig.key === 'unit_price' ? (sortConfig.direction === 'ascending' ? ' ⬆️' : ' ⬇️') : ''}
+                  <br /><input type="number" placeholder="Filter" value={filters.unit_price || ''} onChange={(e) => handleFilterChange('unit_price', e.target.value)} className="mt-1 p-1 w-full text-gray-800 rounded text-xs" onClick={(e) => e.stopPropagation()} />
+                </th>
+                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap cursor-pointer" onClick={() => handleSort('total_amount')}>
+                  合計金額 {sortConfig.key === 'total_amount' ? (sortConfig.direction === 'ascending' ? ' ⬆️' : ' ⬇️') : ''}
+                  <br /><input type="number" placeholder="Filter" value={filters.total_amount || ''} onChange={(e) => handleFilterChange('total_amount', e.target.value)} className="mt-1 p-1 w-full text-gray-800 rounded text-xs" onClick={(e) => e.stopPropagation()} />
+                </th>
+                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap cursor-pointer" onClick={() => handleSort('delivery_unit')}>
+                  納品単位 {sortConfig.key === 'delivery_unit' ? (sortConfig.direction === 'ascending' ? ' ⬆️' : ' ⬇️') : ''}
+                  <br /><input type="text" placeholder="Filter" value={filters.delivery_unit || ''} onChange={(e) => handleFilterChange('delivery_unit', e.target.value)} className="mt-1 p-1 w-full text-gray-800 rounded text-xs" onClick={(e) => e.stopPropagation()} />
+                </th>
+                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap cursor-pointer" onClick={() => handleSort('delivery_note')}>
+                  納品備考 {sortConfig.key === 'delivery_note' ? (sortConfig.direction === 'ascending' ? ' ⬆️' : ' ⬇️') : ''}
+                  <br /><input type="text" placeholder="Filter" value={filters.delivery_note || ''} onChange={(e) => handleFilterChange('delivery_note', e.target.value)} className="mt-1 p-1 w-full text-gray-800 rounded text-xs" onClick={(e) => e.stopPropagation()} />
+                </th>
+                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap cursor-pointer" onClick={() => handleSort('delivery_tax')}>
+                  納品税区分 {sortConfig.key === 'delivery_tax' ? (sortConfig.direction === 'ascending' ? ' ⬆️' : ' ⬇️') : ''}
+                  <br /><input type="number" placeholder="Filter" value={filters.delivery_tax || ''} onChange={(e) => handleFilterChange('delivery_tax', e.target.value)} className="mt-1 p-1 w-full text-gray-800 rounded text-xs" onClick={(e) => e.stopPropagation()} />
+                </th>
+                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap cursor-pointer" onClick={() => handleSort('delivery_orderId')}>
+                  注文番号 {sortConfig.key === 'delivery_orderId' ? (sortConfig.direction === 'ascending' ? ' ⬆️' : ' ⬇️') : ''}
+                  <br /><input type="text" placeholder="Filter" value={filters.delivery_orderId || ''} onChange={(e) => handleFilterChange('delivery_orderId', e.target.value)} className="mt-1 p-1 w-full text-gray-800 rounded text-xs" onClick={(e) => e.stopPropagation()} />
+                </th>
+                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap cursor-pointer" onClick={() => handleSort('delivery_salesGroup')}>
+                  売上グループ {sortConfig.key === 'delivery_salesGroup' ? (sortConfig.direction === 'ascending' ? ' ⬆️' : ' ⬇️') : ''}
+                  <br /><input type="text" placeholder="Filter" value={filters.delivery_salesGroup || ''} onChange={(e) => handleFilterChange('delivery_salesGroup', e.target.value)} className="mt-1 p-1 w-full text-gray-800 rounded text-xs" onClick={(e) => e.stopPropagation()} />
+                </th>
+                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap cursor-pointer" onClick={() => handleSort('customer_name')}>
+                  取引先名 {sortConfig.key === 'customer_name' ? (sortConfig.direction === 'ascending' ? ' ⬆️' : ' ⬇️') : ''}
+                  <br /><input type="text" placeholder="Filter" value={filters.customer_name || ''} onChange={(e) => handleFilterChange('customer_name', e.target.value)} className="mt-1 p-1 w-full text-gray-800 rounded text-xs" onClick={(e) => e.stopPropagation()} />
+                </th>
+                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap cursor-pointer" onClick={() => handleSort('delivery_shippingName')}>
+                  納品先名 {sortConfig.key === 'delivery_shippingName' ? (sortConfig.direction === 'ascending' ? ' ⬆️' : ' ⬇️') : ''}
+                  <br /><input type="text" placeholder="Filter" value={filters.delivery_shippingName || ''} onChange={(e) => handleFilterChange('delivery_shippingName', e.target.value)} className="mt-1 p-1 w-full text-gray-800 rounded text-xs" onClick={(e) => e.stopPropagation()} />
+                </th>
+                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap cursor-pointer" onClick={() => handleSort('delivery_shippingPostalcode')}>
+                  納品先〒 {sortConfig.key === 'delivery_shippingPostalcode' ? (sortConfig.direction === 'ascending' ? ' ⬆️' : ' ⬇️') : ''}
+                  <br /><input type="text" placeholder="Filter" value={filters.delivery_shippingPostalcode || ''} onChange={(e) => handleFilterChange('delivery_shippingPostalcode', e.target.value)} className="mt-1 p-1 w-full text-gray-800 rounded text-xs" onClick={(e) => e.stopPropagation()} />
+                </th>
+                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap cursor-pointer" onClick={() => handleSort('delivery_shippingAddress')}>
+                  納品先住所 {sortConfig.key === 'delivery_shippingAddress' ? (sortConfig.direction === 'ascending' ? ' ⬆️' : ' ⬇️') : ''}
+                  <br /><input type="text" placeholder="Filter" value={filters.delivery_shippingAddress || ''} onChange={(e) => handleFilterChange('delivery_shippingAddress', e.target.value)} className="mt-1 p-1 w-full text-gray-800 rounded text-xs" onClick={(e) => e.stopPropagation()} />
+                </th>
+                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap cursor-pointer" onClick={() => handleSort('delivery_shippingPhone')}>
+                  納品先電話 {sortConfig.key === 'delivery_shippingPhone' ? (sortConfig.direction === 'ascending' ? ' ⬆️' : ' ⬇️') : ''}
+                  <br /><input type="text" placeholder="Filter" value={filters.delivery_shippingPhone || ''} onChange={(e) => handleFilterChange('delivery_shippingPhone', e.target.value)} className="mt-1 p-1 w-full text-gray-800 rounded text-xs" onClick={(e) => e.stopPropagation()} />
+                </th>
+                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap cursor-pointer" onClick={() => handleSort('delivery_number')}>
+                  納品書番号 {sortConfig.key === 'delivery_number' ? (sortConfig.direction === 'ascending' ? ' ⬆️' : ' ⬇️') : ''}
+                  <br /><input type="text" placeholder="Filter" value={filters.delivery_number || ''} onChange={(e) => handleFilterChange('delivery_number', e.target.value)} className="mt-1 p-1 w-full text-gray-800 rounded text-xs" onClick={(e) => e.stopPropagation()} />
+                </th>
+                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap cursor-pointer" onClick={() => handleSort('delivery_invoiceNumber')}>
+                  請求書番号 {sortConfig.key === 'delivery_invoiceNumber' ? (sortConfig.direction === 'ascending' ? ' ⬆️' : ' ⬇️') : ''}
+                  <br /><input type="text" placeholder="Filter" value={filters.delivery_invoiceNumber || ''} onChange={(e) => handleFilterChange('delivery_invoiceNumber', e.target.value)} className="mt-1 p-1 w-full text-gray-800 rounded text-xs" onClick={(e) => e.stopPropagation()} />
+                </th>
+                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap cursor-pointer" onClick={() => handleSort('delivery_status')}>
+                  納品書ステータス {sortConfig.key === 'delivery_status' ? (sortConfig.direction === 'ascending' ? ' ⬆️' : ' ⬇️') : ''}
+                  <br /><input type="text" placeholder="Filter" value={filters.delivery_status || ''} onChange={(e) => handleFilterChange('delivery_status', e.target.value)} className="mt-1 p-1 w-full text-gray-800 rounded text-xs" onClick={(e) => e.stopPropagation()} />
+                </th>
+                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap cursor-pointer" onClick={() => handleSort('delivery_invoiceStatus')}>
+                  請求書ステータス {sortConfig.key === 'delivery_invoiceStatus' ? (sortConfig.direction === 'ascending' ? ' ⬆️' : ' ⬇️') : ''}
+                  <br /><input type="text" placeholder="Filter" value={filters.delivery_invoiceStatus || ''} onChange={(e) => handleFilterChange('delivery_invoiceStatus', e.target.value)} className="mt-1 p-1 w-full text-gray-800 rounded text-xs" onClick={(e) => e.stopPropagation()} />
+                </th>
+                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap cursor-pointer" onClick={() => handleSort('delivery_date')}>
+                  納品日 {sortConfig.key === 'delivery_date' ? (sortConfig.direction === 'ascending' ? ' ⬆️' : ' ⬇️') : ''}
+                  <br /><input type="date" placeholder="Filter" value={filters.delivery_date || ''} onChange={(e) => handleFilterChange('delivery_date', e.target.value)} className="mt-1 p-1 w-full text-gray-800 rounded text-xs" onClick={(e) => e.stopPropagation()} />
+                </th>
+                <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap cursor-pointer" onClick={() => handleSort('delivery_invoiceDate')}>
+                  請求日 {sortConfig.key === 'delivery_invoiceDate' ? (sortConfig.direction === 'ascending' ? ' ⬆️' : ' ⬇️') : ''}
+                  <br /><input type="date" placeholder="Filter" value={filters.delivery_invoiceDate || ''} onChange={(e) => handleFilterChange('delivery_invoiceDate', e.target.value)} className="mt-1 p-1 w-full text-gray-800 rounded text-xs" onClick={(e) => e.stopPropagation()} />
+                </th>
                 <th className="py-2 px-4 text-white font-bold text-sm text-center border border-gray-300 whitespace-nowrap">編集</th>
                 <th className="py-2 px-4 text-white font-bold text-sm text-center border border-gray-300 whitespace-nowrap">削除</th>
                 <th className="py-2 px-4 text-white font-bold text-sm text-center border border-gray-300 whitespace-nowrap">発行</th>
               </tr>
             </thead>
             <tbody>
-              {deliveries.map((delivery) => (
+              {filteredAndSortedDeliveries.map((delivery) => (
                 <tr key={delivery.delivery_id} className="even:bg-gray-100">
                   <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">{delivery.delivery_id}</td>
                   <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">

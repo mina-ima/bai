@@ -48,12 +48,32 @@ const generateNextId = (prefix: string, existingData: Delivery[], idField: keyof
 
 export default function DeliverySearchPage() {
   const [deliveries, setDeliveries] = useState<EditableDelivery[]>([]);
+  const [allDeliveries, setAllDeliveries] = useState<Delivery[]>([]); // 全納品データを保持
   const [originalDeliveries, setOriginalDeliveries] = useState<EditableDelivery[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
   const [selectedDeliveries, setSelectedDeliveries] = useState<string[]>([]); // 選択された納品IDの配列
+
+  // States for incremental search suggestions
+  const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
+  const [filteredCustomerSuggestions, setFilteredCustomerSuggestions] = useState<string[]>([]);
+
+  const [showProductSuggestions, setShowProductSuggestions] = useState(false);
+  const [filteredProductSuggestions, setFilteredProductSuggestions] = useState<string[]>([]);
+
+  const [showShippingNameSuggestions, setShowShippingNameSuggestions] = useState(false);
+  const [filteredShippingNameSuggestions, setFilteredShippingNameSuggestions] = useState<string[]>([]);
+
+  const [showOrderIdSuggestions, setShowOrderIdSuggestions] = useState(false);
+  const [filteredOrderIdSuggestions, setFilteredOrderIdSuggestions] = useState<string[]>([]);
+
+  const [showSalesGroupSuggestions, setShowSalesGroupSuggestions] = useState(false);
+  const [filteredSalesGroupSuggestions, setFilteredSalesGroupSuggestions] = useState<string[]>([]);
+
+  const [showDeliveryNoteSuggestions, setShowDeliveryNoteSuggestions] = useState(false);
+  const [filteredDeliveryNoteSuggestions, setFilteredDeliveryNoteSuggestions] = useState<string[]>([]);
 
   const [searchParams, setSearchParams] = useState({
     delivery_id: '',
@@ -80,19 +100,17 @@ export default function DeliverySearchPage() {
     delivery_invoiceDate_to: '',
   });
 
-  // デバウンス処理用のstate
-  const [debouncedSearchParams, setDebouncedSearchParams] = useState(searchParams);
-
-  const fetchDeliveries = useCallback(async () => {
+  const fetchDeliveries = useCallback(async (params: typeof searchParams) => {
     setLoading(true);
     setError(null);
     try {
-      const query = new URLSearchParams(debouncedSearchParams).toString();
+      const query = new URLSearchParams(params as Record<string, string>).toString();
       const response = await fetch(`/api/delivery?${query}`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       const data: Delivery[] = await response.json();
+      setAllDeliveries(data); // Store all fetched data
       const editableDeliveries = data.map(d => ({ ...d, isEditing: false }));
       setDeliveries(editableDeliveries);
       setOriginalDeliveries(editableDeliveries);
@@ -102,34 +120,78 @@ export default function DeliverySearchPage() {
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearchParams]);
+  }, []);
 
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setSearchParams(prev => ({ ...prev, [name]: value }));
+
+    // インクリメンタルサーチの候補を生成
+    const filterSuggestions = (field: keyof Delivery, setter: React.Dispatch<React.SetStateAction<string[]>>) => {
+      if (value.length > 0) {
+        const uniqueValues = Array.from(new Set(allDeliveries
+          .map(d => String(d[field]))
+          .filter(item => item.toLowerCase().includes(value.toLowerCase()))
+        )).sort((a, b) => a.localeCompare(b));
+        setter(uniqueValues);
+      } else {
+        setter([]);
+      }
+    };
+
+    switch (name) {
+      case 'customer_name':
+        filterSuggestions('customer_name', setFilteredCustomerSuggestions);
+        setShowCustomerSuggestions(true);
+        break;
+      case 'product_name':
+        filterSuggestions('product_name', setFilteredProductSuggestions);
+        setShowProductSuggestions(true);
+        break;
+      case 'delivery_shippingName':
+        filterSuggestions('delivery_shippingName', setFilteredShippingNameSuggestions);
+        setShowShippingNameSuggestions(true);
+        break;
+      case 'delivery_orderId':
+        filterSuggestions('delivery_orderId', setFilteredOrderIdSuggestions);
+        setShowOrderIdSuggestions(true);
+        break;
+      case 'delivery_salesGroup':
+        filterSuggestions('delivery_salesGroup', setFilteredSalesGroupSuggestions);
+        setShowSalesGroupSuggestions(true);
+        break;
+      case 'delivery_note':
+        filterSuggestions('delivery_note', setFilteredDeliveryNoteSuggestions);
+        setShowDeliveryNoteSuggestions(true);
+        break;
+      default:
+        break;
+    }
   };
 
-  // searchParamsが変更されたらdebouncedSearchParamsを更新（デバウンス）
   useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedSearchParams(searchParams);
-    }, 500); // 500msのデバウンス
-
-    return () => {
-      clearTimeout(handler);
+    // コンポーネントマウント時に一度だけデータをフェッチ
+    const fetchInitialData = async () => {
+      try {
+        const [customersRes, productsRes, companyInfoRes] = await Promise.all([
+          fetch('/api/customers'),
+          fetch('/api/products'),
+          fetch('/data/company_info.json'),
+        ]);
+        const customersData = await customersRes.json();
+        const productsData = await productsRes.json();
+        const companyData = await companyInfoRes.json();
+        setCustomers(customersData);
+        setCompanyInfo(companyData);
+      } catch (error: any) {
+        console.error("Failed to fetch initial data:", error);
+      }
     };
-  }, [searchParams]);
+    fetchInitialData();
+    fetchDeliveries(searchParams);
+  }, []);
 
-  // debouncedSearchParamsが変更されたら検索を実行
-  useEffect(() => {
-    fetchDeliveries();
-  }, [debouncedSearchParams, fetchDeliveries]);
-
-  useEffect(() => {
-    fetchDeliveries();
-  }, [debouncedSearchParams, fetchDeliveries]);
-
-  const handleEditChange = useCallback((
+  const handleEditChange = useCallback(( 
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
     deliveryId: string,
     field: keyof Delivery
@@ -182,7 +244,7 @@ export default function DeliverySearchPage() {
           delivery.delivery_id === savedDelivery.delivery_id ? { ...savedDelivery, isEditing: false } : delivery
         )
       );
-      alert('納品データが更新されました。');
+      
       return savedDelivery;
     } catch (e: any) {
       setError(e.message);
@@ -203,11 +265,23 @@ export default function DeliverySearchPage() {
     setDeliveries(prevDeliveries =>
       prevDeliveries.map(delivery =>
         delivery.delivery_id === deliveryId
-          ? { ...originalDeliveries.find(d => d.delivery_id === deliveryId)!, isEditing: false }
+          ? { ...originalDeliveries.find(d => d.delivery_id === deliveryId)!, isEditing: false } 
           : delivery
       )
     );
   }, [originalDeliveries]);
+
+  const handleSelectSuggestion = (name: keyof typeof searchParams, value: string, setter: React.Dispatch<React.SetStateAction<boolean>>) => {
+    setSearchParams(prev => ({ ...prev, [name]: value }));
+    setter(false);
+  };
+
+  const handleSelectCustomerSuggestion = (value: string) => handleSelectSuggestion('customer_name', value, setShowCustomerSuggestions);
+  const handleSelectProductSuggestion = (value: string) => handleSelectSuggestion('product_name', value, setShowProductSuggestions);
+  const handleSelectShippingNameSuggestion = (value: string) => handleSelectSuggestion('delivery_shippingName', value, setShowShippingNameSuggestions);
+  const handleSelectOrderIdSuggestion = (value: string) => handleSelectSuggestion('delivery_orderId', value, setShowOrderIdSuggestions);
+  const handleSelectSalesGroupSuggestion = (value: string) => handleSelectSuggestion('delivery_salesGroup', value, setShowSalesGroupSuggestions);
+  const handleSelectDeliveryNoteSuggestion = (value: string) => handleSelectSuggestion('delivery_note', value, setShowDeliveryNoteSuggestions);
 
   const handleDeleteDelivery = useCallback(async (id: string) => {
     if (confirm(`納品ID: ${id} を削除しますか？`)) {
@@ -218,7 +292,7 @@ export default function DeliverySearchPage() {
 
         if (response.ok) {
           alert('納品データが削除されました。');
-          fetchDeliveries(); // 削除後にリストを再フェッチ
+          fetchDeliveries(searchParams); // 削除後にリストを再フェッチ
         } else {
           alert('納品データの削除に失敗しました。');
         }
@@ -256,32 +330,31 @@ export default function DeliverySearchPage() {
       return;
     }
 
-    // 既に発行済みの納品データがないかチェック
-    const alreadyIssued = selectedDeliveries.filter(id => {
-      const delivery = deliveries.find(d => d.delivery_id === id);
-      return delivery && delivery.delivery_status === '済';
-    });
+    const deliveriesToIssue = selectedDeliveries.map(id => deliveries.find(d => d.delivery_id === id)!);
 
-    if (alreadyIssued.length > 0) {
-      alert(`以下の納品IDは既に納品書が発行済みです。
-${alreadyIssued.join(', ')}
-発行済みの納品書は再発行できません。`);
-      return;
+    // 既に発行済みの納品データがないかチェックし、共通の納品書番号を特定
+    const issuedDeliveries = deliveriesToIssue.filter(d => d.delivery_status === '済');
+
+    let commonDeliveryNumber: string | undefined = undefined;
+    if (issuedDeliveries.length > 0) {
+      const uniqueIssuedNumbers = new Set(issuedDeliveries.map(d => d.delivery_number).filter(Boolean));
+      if (uniqueIssuedNumbers.size > 1) {
+        alert(`選択された納品データの中に、異なる納品書番号で発行済みのものが含まれています。再発行できません。`);
+        return;
+      }
+      if (uniqueIssuedNumbers.size === 1) {
+        commonDeliveryNumber = uniqueIssuedNumbers.values().next().value;
+      }
     }
 
-    // 一括発行用の納品書番号を生成（いずれかの納品データに番号がなければ新規生成）
-    let bulkDeliveryNumber: string | undefined;
-    const needsNewNumber = selectedDeliveries.some(id => {
-      const delivery = deliveries.find(d => d.delivery_id === id);
-      return !delivery?.delivery_number;
-    });
+    // 新しい納品書番号が必要か、または既存の共通納品書番号を使用するか
+    let bulkDeliveryNumber: string | undefined = commonDeliveryNumber;
+    const needsNewNumber = deliveriesToIssue.some(d => !d.delivery_number);
 
-    if (needsNewNumber) {
-      // サーバーから最新の全データを取得し、新しい納品書番号を生成
+    if (needsNewNumber && !bulkDeliveryNumber) {
       try {
         const response = await fetch('/api/delivery');
         const allCurrentDeliveries: Delivery[] = await response.json();
-        // generateNextId は Delivery[] を受け取るので、既存の全データから最大値を計算
         bulkDeliveryNumber = generateNextId('DN', allCurrentDeliveries, 'delivery_number');
       } catch (error) {
         console.error('Failed to generate new delivery number:', error);
@@ -290,103 +363,70 @@ ${alreadyIssued.join(', ')}
       }
     }
 
-    const deliveriesToProcess = selectedDeliveries.map(id => deliveries.find(d => d.delivery_id === id)!);
+    // 納品書番号を更新したデータを作成
+    const updatedDeliveriesForPdf = deliveriesToIssue.map(d => ({
+      ...d,
+      delivery_number: d.delivery_number || bulkDeliveryNumber || '', // 既に番号がある場合はそれを維持、なければ新しく生成された番号を適用、それでもundefinedなら空文字列
+    }));
 
-    // 納品データを10件ずつに分割
-    const chunkSize = 10;
-    const totalPages = Math.ceil(deliveriesToProcess.length / chunkSize);
-    let processedCount = 0;
+    // DeliveryオブジェクトをDeliveryItemオブジェクトに変換
+    const deliveryItemsForPdf = updatedDeliveriesForPdf.map(delivery => ({
+      productCode: delivery.product_name,
+      quantity: delivery.quantity,
+      unit: delivery.delivery_unit,
+      unitPrice: delivery.unit_price,
+      remarks: delivery.delivery_note,
+    }));
 
-    for (let i = 0; i < deliveriesToProcess.length; i += chunkSize) {
-      const chunk = deliveriesToProcess.slice(i, i + chunkSize);
-      const currentPage = Math.floor(i / chunkSize) + 1;
+    try {
+      const response = await fetch('/api/delivery/generate-pdf', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          deliveries: deliveryItemsForPdf,
+          companyInfo: companyInfo,
+          customers: customers, // 顧客情報もAPIに渡す
+          deliveryNoteNumber: bulkDeliveryNumber || '未設定', // 一括納品書番号を明示的に渡す
+        }),
+      });
 
-      for (const deliveryToIssue of chunk) {
-        const customer = customers.find(c => c.customer_name === deliveryToIssue?.customer_name);
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `納品書_一括_${new Date().toISOString().split('T')[0]}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+        alert('一括納品書を生成しました。');
 
-        if (!customer) {
-          console.warn(`納品ID: ${deliveryToIssue.delivery_id} の顧客情報が見つかりません。スキップします。`);
-          continue;
+        // PDF生成成功後、納品ステータスを更新
+        for (const delivery of updatedDeliveriesForPdf) {
+          await handleSave({ ...delivery, delivery_status: '済' });
         }
 
-        try {
-          // 納品ステータスを更新し、納品書番号を適用
-          const updatedDelivery: EditableDelivery = {
-            ...deliveryToIssue,
-            delivery_status: '済',
-            delivery_number: bulkDeliveryNumber || deliveryToIssue.delivery_number, // 新しい番号があれば適用
-          };
-          const savedDelivery = await handleSave(updatedDelivery);
+        setSelectedDeliveries([]); // 選択をクリア
+        fetchDeliveries(searchParams); // リストを再フェッチして最新の状態を反映
 
-          const pdfData: DeliveryNotePdfProps = {
-            deliveryNoteNumber: savedDelivery.delivery_number || '未設定',
-            deliveryDate: savedDelivery.delivery_date,
-            companyInfo: {
-              name: companyInfo.company_name,
-              postalCode: companyInfo.company_postalCode,
-              address: companyInfo.company_address,
-              phone: companyInfo.company_phone,
-              fax: companyInfo.company_fax,
-              bankName: companyInfo.company_bankName,
-              branchName: companyInfo.company_bankBranch,
-              accountType: companyInfo.company_bankType,
-              accountNumber: companyInfo.company_bankNumber,
-              personInCharge: companyInfo.company_contactPerson,
-            },
-            customerInfo: {
-              code: customer.customer_id,
-              postalCode: customer.customer_postalCode,
-              address: customer.customer_address,
-              name: customer.customer_formalName || customer.customer_name,
-            },
-            deliveryItems: [
-              {
-                productCode: savedDelivery.product_name,
-                quantity: savedDelivery.quantity,
-                unit: savedDelivery.delivery_unit,
-                unitPrice: savedDelivery.unit_price,
-                remarks: savedDelivery.delivery_note,
-              },
-            ],
-            currentPage: currentPage,
-            totalPages: totalPages,
-          };
-
-          const response = await fetch('/api/delivery/generate-pdf', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(pdfData),
-          });
-
-          if (response.ok) {
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `納品書_${savedDelivery.delivery_number || savedDelivery.delivery_id}_${currentPage}of${totalPages}.pdf`;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            window.URL.revokeObjectURL(url);
-            console.log(`納品ID: ${deliveryToIssue.delivery_id} の納品書を生成しました。 (ページ ${currentPage}/${totalPages})`);
-            processedCount++;
-          } else {
-            const errorText = await response.text();
-            console.error(`納品ID: ${deliveryToIssue.delivery_id} のPDF生成に失敗しました:`, response.statusText, errorText);
-            alert(`納品ID: ${deliveryToIssue.delivery_id} の納品書生成に失敗しました。詳細をコンソールで確認してください。`);
-          }
-        } catch (error) {
-          console.error(`納品ID: ${deliveryToIssue.delivery_id} の納品書生成またはデータ更新中にエラーが発生しました:`, error);
-          alert(`納品ID: ${deliveryToIssue.delivery_id} の納品書生成またはデータ更新中にエラーが発生しました。`);
-        }
+      } else {
+        const errorText = await response.text();
+        console.error('Failed to generate bulk PDF:', response.statusText, errorText);
+        alert('一括納品書生成に失敗しました。詳細をコンソールで確認してください。');
       }
+    } catch (error) {
+      console.error('Error generating bulk PDF or updating delivery status:', error);
+      alert('一括納品書生成またはデータ更新中にエラーが発生しました。');
     }
-    alert(`選択された納品書 ${processedCount} 件の生成処理が完了しました。`);
-    setSelectedDeliveries([]); // 選択をクリア
-    fetchDeliveries(); // リストを再フェッチして最新の状態を反映
   };
+
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
+    fetchDeliveries(searchParams);
+  }, [fetchDeliveries, searchParams]);
 
   if (loading) return <p>読み込み中...</p>;
   if (error) return <p>エラー: {error}</p>;
@@ -397,7 +437,7 @@ ${alreadyIssued.join(', ')}
         <h1 className="text-size-30 font-bold text-center mb-8">納品検索</h1>
 
         {/* 検索フォーム */}
-        <form className="bg-white shadow-md rounded-lg p-6 mb-8">
+        <form onSubmit={handleSubmit} className="bg-white shadow-md rounded-lg p-6 mb-8">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* 納品書番号 */}
             <div>
@@ -451,7 +491,7 @@ ${alreadyIssued.join(', ')}
               </select>
             </div>
             {/* 取引先名 */}
-            <div>
+            <div className="relative">
               <label htmlFor="customer_name" className="block text-gray-700 text-sm font-bold mb-2">取引先名</label>
               <input
                 type="text"
@@ -459,11 +499,26 @@ ${alreadyIssued.join(', ')}
                 name="customer_name"
                 value={searchParams.customer_name}
                 onChange={handleSearchChange}
+                onFocus={() => setShowCustomerSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowCustomerSuggestions(false), 100)}
                 className="shadow appearance-none border rounded w-full py-1 px-2 text-gray-700 leading-tight focus:outline-none focus:shadow-outline text-sm"
               />
+              {showCustomerSuggestions && filteredCustomerSuggestions.length > 0 && (
+                <ul className="absolute z-10 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto mt-1">
+                  {filteredCustomerSuggestions.map((suggestion, index) => (
+                    <li
+                      key={index}
+                      onMouseDown={() => handleSelectCustomerSuggestion(suggestion)}
+                      className="px-3 py-2 cursor-pointer hover:bg-gray-100 text-sm"
+                    >
+                      {suggestion}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
             {/* 納品品番 */}
-            <div>
+            <div className="relative">
               <label htmlFor="product_name" className="block text-gray-700 text-sm font-bold mb-2">納品品番</label>
               <input
                 type="text"
@@ -471,11 +526,26 @@ ${alreadyIssued.join(', ')}
                 name="product_name"
                 value={searchParams.product_name}
                 onChange={handleSearchChange}
+                onFocus={() => setShowProductSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowProductSuggestions(false), 100)}
                 className="shadow appearance-none border rounded w-full py-1 px-2 text-gray-700 leading-tight focus:outline-none focus:shadow-outline text-sm"
               />
+              {showProductSuggestions && filteredProductSuggestions.length > 0 && (
+                <ul className="absolute z-10 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto mt-1">
+                  {filteredProductSuggestions.map((suggestion, index) => (
+                    <li
+                      key={index}
+                      onMouseDown={() => handleSelectProductSuggestion(suggestion)}
+                      className="px-3 py-2 cursor-pointer hover:bg-gray-100 text-sm"
+                    >
+                      {suggestion}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
             {/* 納品先名 */}
-            <div>
+            <div className="relative">
               <label htmlFor="delivery_shippingName" className="block text-gray-700 text-sm font-bold mb-2">納品先名</label>
               <input
                 type="text"
@@ -483,8 +553,23 @@ ${alreadyIssued.join(', ')}
                 name="delivery_shippingName"
                 value={searchParams.delivery_shippingName}
                 onChange={handleSearchChange}
+                onFocus={() => setShowShippingNameSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowShippingNameSuggestions(false), 100)}
                 className="shadow appearance-none border rounded w-full py-1 px-2 text-gray-700 leading-tight focus:outline-none focus:shadow-outline text-sm"
               />
+              {showShippingNameSuggestions && filteredShippingNameSuggestions.length > 0 && (
+                <ul className="absolute z-10 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto mt-1">
+                  {filteredShippingNameSuggestions.map((suggestion, index) => (
+                    <li
+                      key={index}
+                      onMouseDown={() => handleSelectShippingNameSuggestion(suggestion)}
+                      className="px-3 py-2 cursor-pointer hover:bg-gray-100 text-sm"
+                    >
+                      {suggestion}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
             {/* 納品数量 (From/To) */}
             <div>
@@ -610,7 +695,7 @@ ${alreadyIssued.join(', ')}
               </select>
             </div>
             {/* 注文番号 */}
-            <div>
+            <div className="relative">
               <label htmlFor="delivery_orderId" className="block text-gray-700 text-sm font-bold mb-2">注文番号</label>
               <input
                 type="text"
@@ -618,11 +703,26 @@ ${alreadyIssued.join(', ')}
                 name="delivery_orderId"
                 value={searchParams.delivery_orderId}
                 onChange={handleSearchChange}
+                onFocus={() => setShowOrderIdSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowOrderIdSuggestions(false), 100)}
                 className="shadow appearance-none border rounded w-full py-1 px-2 text-gray-700 leading-tight focus:outline-none focus:shadow-outline text-sm"
               />
+              {showOrderIdSuggestions && filteredOrderIdSuggestions.length > 0 && (
+                <ul className="absolute z-10 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto mt-1">
+                  {filteredOrderIdSuggestions.map((suggestion, index) => (
+                    <li
+                      key={index}
+                      onMouseDown={() => handleSelectOrderIdSuggestion(suggestion)}
+                      className="px-3 py-2 cursor-pointer hover:bg-gray-100 text-sm"
+                    >
+                      {suggestion}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
             {/* 売上グループ */}
-            <div>
+            <div className="relative">
               <label htmlFor="delivery_salesGroup" className="block text-gray-700 text-sm font-bold mb-2">売上グループ</label>
               <input
                 type="text"
@@ -630,8 +730,23 @@ ${alreadyIssued.join(', ')}
                 name="delivery_salesGroup"
                 value={searchParams.delivery_salesGroup}
                 onChange={handleSearchChange}
+                onFocus={() => setShowSalesGroupSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSalesGroupSuggestions(false), 100)}
                 className="shadow appearance-none border rounded w-full py-1 px-2 text-gray-700 leading-tight focus:outline-none focus:shadow-outline text-sm"
               />
+              {showSalesGroupSuggestions && filteredSalesGroupSuggestions.length > 0 && (
+                <ul className="absolute z-10 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto mt-1">
+                  {filteredSalesGroupSuggestions.map((suggestion, index) => (
+                    <li
+                      key={index}
+                      onMouseDown={() => handleSelectSalesGroupSuggestion(suggestion)}
+                      className="px-3 py-2 cursor-pointer hover:bg-gray-100 text-sm"
+                    >
+                      {suggestion}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
             {/* 納品ID */}
             <div>
@@ -658,7 +773,7 @@ ${alreadyIssued.join(', ')}
               />
             </div>
             {/* 納品備考 */}
-            <div>
+            <div className="relative">
               <label htmlFor="delivery_note" className="block text-gray-700 text-sm font-bold mb-2">納品備考</label>
               <input
                 type="text"
@@ -666,8 +781,23 @@ ${alreadyIssued.join(', ')}
                 name="delivery_note"
                 value={searchParams.delivery_note}
                 onChange={handleSearchChange}
+                onFocus={() => setShowDeliveryNoteSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowDeliveryNoteSuggestions(false), 100)}
                 className="shadow appearance-none border rounded w-full py-1 px-2 text-gray-700 leading-tight focus:outline-none focus:shadow-outline text-sm"
               />
+              {showDeliveryNoteSuggestions && filteredDeliveryNoteSuggestions.length > 0 && (
+                <ul className="absolute z-10 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto mt-1">
+                  {filteredDeliveryNoteSuggestions.map((suggestion, index) => (
+                    <li
+                      key={index}
+                      onMouseDown={() => handleSelectDeliveryNoteSuggestion(suggestion)}
+                      className="px-3 py-2 cursor-pointer hover:bg-gray-100 text-sm"
+                    >
+                      {suggestion}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </div>
           <div className="flex justify-center mt-6">

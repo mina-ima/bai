@@ -32,6 +32,13 @@ async function writeData(data: Delivery[]): Promise<void> {
   console.log('writeData: Data written successfully.');
 }
 
+// Helper function to normalize a date string to the start of the day
+const normalizeDate = (dateString: string) => {
+  const date = new Date(dateString);
+  date.setHours(0, 0, 0, 0); // Set to beginning of the day
+  return date;
+};
+
 function generateNextId(prefix: string, existingData: Delivery[], idField: keyof Delivery): string {
   console.log('generateNextId: existingData received:', existingData.map(d => d[idField]));
   let maxIdNum = 0;
@@ -78,6 +85,10 @@ export async function GET(request: Request) {
 
     // フィルタリングロジック
     allData = allData.filter(delivery => {
+      console.log(`
+--- Filtering Delivery ID: ${delivery.delivery_id} ---`);
+      console.log(`Original delivery_date: ${delivery.delivery_date}`);
+      console.log(`Original delivery_invoiceDate: ${delivery.delivery_invoiceDate}`);
       // 納品ID
       const deliveryId = searchParams.get('delivery_id');
       if (deliveryId && !delivery.delivery_id.includes(deliveryId)) return false;
@@ -145,16 +156,62 @@ export async function GET(request: Request) {
       if (invoiceStatus && delivery.delivery_invoiceStatus !== invoiceStatus) return false;
 
       // 納品日 (From/To)
-      const deliveryDateFrom = searchParams.get('delivery_date_from');
-      const deliveryDateTo = searchParams.get('delivery_date_to');
-      if (deliveryDateFrom && delivery.delivery_date < deliveryDateFrom) return false;
-      if (deliveryDateTo && delivery.delivery_date > deliveryDateTo) return false;
+      const deliveryDateFromStr = searchParams.get('delivery_date_from');
+      const deliveryDateToStr = searchParams.get('delivery_date_to');
+
+      const normalizedDeliveryDate = normalizeDate(delivery.delivery_date);
+
+      if (deliveryDateFromStr) {
+        const filterDateFrom = normalizeDate(deliveryDateFromStr);
+        console.log(`deliveryDateFromStr: ${deliveryDateFromStr}, filterDateFrom: ${filterDateFrom.toISOString()}, normalizedDeliveryDate: ${normalizedDeliveryDate.toISOString()}`);
+        if (isNaN(filterDateFrom.getTime()) || isNaN(normalizedDeliveryDate.getTime())) {
+          console.warn(`Invalid delivery_date_from or delivery.delivery_date for delivery ID ${delivery.delivery_id}`);
+        } else if (normalizedDeliveryDate < filterDateFrom) {
+          console.log(`deliveryDate ${normalizedDeliveryDate.toISOString()} is before filterDateFrom ${filterDateFrom.toISOString()}`);
+          return false;
+        }
+      }
+      if (deliveryDateToStr) {
+        const filterDateTo = normalizeDate(deliveryDateToStr);
+        // filterDateTo を翌日の00:00:00に設定して、指定日全体を含むようにする
+        filterDateTo.setDate(filterDateTo.getDate() + 1);
+        console.log(`deliveryDateToStr: ${deliveryDateToStr}, filterDateTo (adjusted): ${filterDateTo.toISOString()}, normalizedDeliveryDate: ${normalizedDeliveryDate.toISOString()}`);
+        if (isNaN(filterDateTo.getTime()) || isNaN(normalizedDeliveryDate.getTime())) {
+          console.warn(`Invalid delivery_date_to or delivery.delivery_date for delivery ID ${delivery.delivery_id}`);
+        } else if (normalizedDeliveryDate >= filterDateTo) {
+          console.log(`deliveryDate ${normalizedDeliveryDate.toISOString()} is on or after filterDateTo (adjusted) ${filterDateTo.toISOString()}`);
+          return false;
+        }
+      }
 
       // 請求日 (From/To)
-      const invoiceDateFrom = searchParams.get('delivery_invoiceDate_from');
-      const invoiceDateTo = searchParams.get('delivery_invoiceDate_to');
-      if (invoiceDateFrom && delivery.delivery_invoiceDate < invoiceDateFrom) return false;
-      if (invoiceDateTo && delivery.delivery_invoiceDate > invoiceDateTo) return false;
+      const invoiceDateFromStr = searchParams.get('delivery_invoiceDate_from');
+      const invoiceDateToStr = searchParams.get('delivery_invoiceDate_to');
+
+      const normalizedDeliveryInvoiceDate = normalizeDate(delivery.delivery_invoiceDate);
+
+      if (invoiceDateFromStr) {
+        const filterInvoiceDateFrom = normalizeDate(invoiceDateFromStr);
+        console.log(`invoiceDateFromStr: ${invoiceDateFromStr}, filterInvoiceDateFrom: ${filterInvoiceDateFrom.toISOString()}, normalizedDeliveryInvoiceDate: ${normalizedDeliveryInvoiceDate.toISOString()}`);
+        if (isNaN(filterInvoiceDateFrom.getTime()) || isNaN(normalizedDeliveryInvoiceDate.getTime())) {
+          console.warn(`Invalid invoiceDateFrom or delivery.delivery_invoiceDate for delivery ID ${delivery.delivery_id}`);
+        } else if (normalizedDeliveryInvoiceDate < filterInvoiceDateFrom) {
+          console.log(`deliveryInvoiceDate ${normalizedDeliveryInvoiceDate.toISOString()} is before filterInvoiceDateFrom ${filterInvoiceDateFrom.toISOString()}`);
+          return false;
+        }
+      }
+      if (invoiceDateToStr) {
+        const filterInvoiceDateTo = normalizeDate(invoiceDateToStr);
+        // filterInvoiceDateTo を翌日の00:00:00に設定して、指定日全体を含むようにする
+        filterInvoiceDateTo.setDate(filterInvoiceDateTo.getDate() + 1);
+        console.log(`invoiceDateToStr: ${invoiceDateToStr}, filterInvoiceDateTo (adjusted): ${filterInvoiceDateTo.toISOString()}, normalizedDeliveryInvoiceDate: ${normalizedDeliveryInvoiceDate.toISOString()}`);
+        if (isNaN(filterInvoiceDateTo.getTime()) || isNaN(normalizedDeliveryInvoiceDate.getTime())) {
+          console.warn(`Invalid invoiceDateTo or delivery.delivery_invoiceDate for delivery ID ${delivery.delivery_id}`);
+        } else if (normalizedDeliveryInvoiceDate >= filterInvoiceDateTo) {
+          console.log(`deliveryInvoiceDate ${normalizedDeliveryInvoiceDate.toISOString()} is on or after filterInvoiceDateTo (adjusted) ${filterInvoiceDateTo.toISOString()}`);
+          return false;
+        }
+      }
 
       return true;
     });

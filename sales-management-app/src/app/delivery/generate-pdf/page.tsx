@@ -41,7 +41,13 @@ const DeliveryGeneratePdfPage: React.FC = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(dummyData),
+        body: JSON.stringify({
+          deliveries: dummyData.deliveryItems,
+          companyInfo: dummyData.companyInfo,
+          customers: [dummyData.customerInfo], // Wrap customerInfo in an array
+          delivery_number: dummyData.deliveryNoteNumber,
+          delivery_date: dummyData.deliveryDate,
+        }),
       });
 
       console.log('Response status:', response.status);

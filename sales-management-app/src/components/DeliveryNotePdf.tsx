@@ -35,14 +35,15 @@ export interface DeliveryNotePdfProps {
   deliveryDate: string; // YYYY/MM/DD 形式を想定
   companyInfo: CompanyInfo;
   customerInfo: CustomerInfo;
-  deliveryItems: DeliveryItem[];
+  deliveryItems: DeliveryItem[]; // This will now be the items for a single page
   currentPage?: number; // 現在のページ番号
   totalPages?: number; // 総ページ数
+  isCopy?: boolean; // 控えかどうかを示すフラグ
 }
 
 const BORDER_STYLE = '1px solid #000';
 
-const styles = StyleSheet.create({
+export const styles = StyleSheet.create({
   page: {
     flexDirection: 'column',
     backgroundColor: '#fff',
@@ -66,7 +67,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     flexGrow: 1,
     textDecoration: 'underline',
-    paddingLeft: 280, // さらに140px右にずらす
+    paddingLeft: 215, // 50px左に移動
   },
   topRightInfo: {
     textAlign: 'right',
@@ -166,25 +167,36 @@ const styles = StyleSheet.create({
   remarksCol: { flex: 1.6, borderRightWidth: 0 },
 });
 
-const DeliveryNoteSection: React.FC<{ data: DeliveryNotePdfProps; type: '控' | '' }> = ({ data, type }) => {
-  const { deliveryNoteNumber, deliveryDate, companyInfo, customerInfo, deliveryItems, currentPage, totalPages } = data;
+// DeliveryNoteSection を DeliveryNotePdf の内部に統合し、単一のページコンテンツとして扱う
+export const DeliveryNoteContent: React.FC<{ data: DeliveryNotePdfProps }> = ({ data }) => {
+  const { deliveryNoteNumber, deliveryDate, companyInfo, customerInfo, deliveryItems, currentPage, totalPages, isCopy } = data;
 
   const tableHeaders = ['品番', '数量', '単位', '単価', '金額', '備考'];
 
-  // 表示する納品アイテムを最大10行に制限
-  const displayedItems = deliveryItems.slice(0, 10);
-  // 空行を計算して、合計で10行になるように調整
-  const emptyRowsCount = Math.max(0, 10 - displayedItems.length);
+  // 1ページあたりの表示行数を固定 (API側でチャンクされるため、ここでは常に最大行数を想定)
+  const maxRowsPerPage = 10;
+  const emptyRowsCount = Math.max(0, maxRowsPerPage - deliveryItems.length);
   const emptyRows = Array(emptyRowsCount).fill(null);
 
-  // 合計金額を計算
+  // 合計金額を計算 (このページのアイテムのみ)
   const totalAmount = deliveryItems.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
+
+  // テキストの長さに応じてフォントサイズを調整するヘルパー関数
+  const getTextStyle = (text: string, baseSize: number, maxLength: number, minSize: number = 6) => {
+    if (!text) return { fontSize: baseSize };
+    const length = text.length;
+    if (length > maxLength) {
+      const newSize = Math.max(minSize, baseSize * (maxLength / length));
+      return { fontSize: newSize };
+    }
+    return { fontSize: baseSize };
+  };
 
   return (
     <View style={styles.section}>
       {/* 納品書タイトルと右上の情報 */}
       <View style={styles.topSection}>
-        <Text style={styles.mainTitle}>納品書{type ? `(${type})` : ''}{currentPage && totalPages ? ` (${currentPage}/${totalPages}ページ)` : ''}</Text>
+        <Text style={styles.mainTitle}>納品書{isCopy ? '(控)' : ''}{currentPage && totalPages ? ` (${currentPage}/${totalPages}ページ)` : ''}</Text>
         <View style={styles.topRightInfo}>
           <Text style={styles.text}>納品書No.: {deliveryNoteNumber}</Text>
           <Text style={styles.text}>{deliveryDate}</Text>
@@ -193,7 +205,7 @@ const DeliveryNoteSection: React.FC<{ data: DeliveryNotePdfProps; type: '控' | 
 
       {/* 顧客情報と自社情報 */}
       <View style={styles.infoSection}>
-        <View style={styles.customerBlock}>
+                <View style={styles.customerBlock}>
           <Text style={styles.text}>取引先コード: {customerInfo.code}</Text>
           <Text style={styles.customerPostalCodeText}>〒{customerInfo.postalCode}</Text>
           <Text style={styles.customerAddressText}>{customerInfo.address}</Text>
@@ -225,14 +237,14 @@ const DeliveryNoteSection: React.FC<{ data: DeliveryNotePdfProps; type: '控' | 
           <View style={[styles.tableColHeader, styles.amountCol]}><Text style={styles.tableCell}>{tableHeaders[4]}</Text></View>
           <View style={[styles.tableColHeader, styles.remarksCol]}><Text style={styles.tableCell}>{tableHeaders[5]}</Text></View>
         </View>
-        {displayedItems.map((item, index) => (
+        {deliveryItems.map((item, index) => (
           <View key={index} style={styles.tableRow}>
-            <View style={[styles.tableCol, styles.productCodeCol]}><Text style={styles.tableCell}>{item.productCode}</Text></View>
-            <View style={[styles.tableCol, styles.quantityCol]}><Text style={styles.tableCell}>{item.quantity}</Text></View>
-            <View style={[styles.tableCol, styles.unitCol]}><Text style={styles.tableCell}>{item.unit}</Text></View>
-            <View style={[styles.tableCol, styles.unitPriceCol]}><Text style={styles.tableCell}>{item.unitPrice.toLocaleString()}</Text></View>
-            <View style={[styles.tableCol, styles.amountCol]}><Text style={styles.tableCell}>{(item.quantity * item.unitPrice).toLocaleString()}</Text></View>
-            <View style={[styles.tableCol, styles.remarksCol]}><Text style={styles.tableCell}>{item.remarks}</Text></View>
+            <View style={[styles.tableCol, styles.productCodeCol]}><Text style={[styles.tableCell, getTextStyle(item.productCode, 8, 20)]}>{item.productCode}</Text></View>
+            <View style={[styles.tableCol, styles.quantityCol]}><Text style={[styles.tableCell, getTextStyle(String(item.quantity), 8, 7)]}>{item.quantity}</Text></View>
+            <View style={[styles.tableCol, styles.unitCol]}><Text style={[styles.tableCell, getTextStyle(item.unit, 8, 5)]}>{item.unit}</Text></View>
+            <View style={[styles.tableCol, styles.unitPriceCol]}><Text style={[styles.tableCell, getTextStyle(item.unitPrice.toLocaleString(), 8, 10)]}>{item.unitPrice.toLocaleString()}</Text></View>
+            <View style={[styles.tableCol, styles.amountCol]}><Text style={[styles.tableCell, getTextStyle((item.quantity * item.unitPrice).toLocaleString(), 8, 12)]}>{(item.quantity * item.unitPrice).toLocaleString()}</Text></View>
+            <View style={[styles.tableCol, styles.remarksCol]}><Text style={[styles.tableCell, getTextStyle(item.remarks, 8, 20)]}>{item.remarks}</Text></View>
           </View>
         ))}
         {emptyRows.map((_, index) => (
@@ -259,15 +271,6 @@ const DeliveryNoteSection: React.FC<{ data: DeliveryNotePdfProps; type: '控' | 
   );
 };
 
-export const DeliveryNotePdf: React.FC<{ data: DeliveryNotePdfProps }> = ({ data }) => (
-  <Document>
-    <Page size="A4" style={styles.page}>
-      {/* 上段：納品書(控) */}
-      <DeliveryNoteSection data={data} type="控" />
-      {/* 下段：納品書 */}
-      <DeliveryNoteSection data={data} type="" />
-    </Page>
-  </Document>
-);
 
-export default DeliveryNotePdf;
+
+
