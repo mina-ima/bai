@@ -9,6 +9,7 @@ import { DeliveryNotePdfProps } from '@/components/DeliveryNotePdf'; // PDF Prop
 
 interface EditableDelivery extends Delivery {
   isEditing?: boolean;
+  isCheckedForIssue?: boolean;
 }
 
 // 会社情報の型定義 (company_info.json に合わせる)
@@ -72,6 +73,20 @@ export default function DeliveryRegisterPage() {
 
 
   const [inputMode, setInputMode] = useState<'list' | 'free'>('list');
+  const [isAllSelected, setIsAllSelected] = useState(false); // 全選択チェックボックスの状態
+
+  useEffect(() => {
+    // deliveries の変更に応じて isAllSelected を更新
+    setIsAllSelected(deliveries.length > 0 && deliveries.every(d => d.isCheckedForIssue));
+  }, [deliveries]);
+
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const checked = e.target.checked;
+    setIsAllSelected(checked);
+    setDeliveries(prevDeliveries =>
+      prevDeliveries.map(delivery => ({ ...delivery, isCheckedForIssue: checked }))
+    );
+  };
 
   const handleInputModeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInputMode(e.target.value as 'list' | 'free');
@@ -95,7 +110,7 @@ export default function DeliveryRegisterPage() {
       setLoadingDeliveries(true);
       const deliveriesRes = await fetch('/api/delivery');
       const deliveriesData: Delivery[] = await deliveriesRes.json();
-      const editableDeliveries = deliveriesData.map(d => ({ ...d, isEditing: false }));
+      const editableDeliveries = deliveriesData.map(d => ({ ...d, isEditing: false, isCheckedForIssue: false }));
       setDeliveries(editableDeliveries);
       setOriginalDeliveries(editableDeliveries);
     } catch (error: any) {
@@ -339,28 +354,32 @@ export default function DeliveryRegisterPage() {
     );
   };
 
-  const handleIssueDelivery = async (deliveryId: string) => {
-    const deliveryToIssue = deliveries.find(d => d.delivery_id === deliveryId);
+  const handleCheckboxChange = (deliveryId: string, checked: boolean) => {
+    setDeliveries(prevDeliveries =>
+      prevDeliveries.map(delivery =>
+        delivery.delivery_id === deliveryId ? { ...delivery, isCheckedForIssue: checked } : delivery
+      )
+    );
+  };
+
+  const handleIssueDelivery = async (deliveryToIssue: EditableDelivery) => {
     const customer = customers.find(c => c.customer_name === deliveryToIssue?.customer_name);
 
     if (!deliveryToIssue || !companyInfo || !customer) {
-      alert(`納品書発行に必要な情報が不足しています。
-会社情報または顧客情報が読み込まれていない可能性があります。`);
-      return;
+      console.error(`納品書発行に必要な情報が不足しています。納品ID: ${deliveryToIssue?.delivery_id}`);
+      throw new Error(`納品書発行に必要な情報が不足しています。`);
     }
 
     try {
-      // まず納品ステータスを更新し、サーバーから最新のデータ（納品書番号を含む）を取得
       const updatedDelivery: EditableDelivery = {
         ...deliveryToIssue,
         delivery_status: '済',
-        // delivery_invoiceStatus は納品書発行では更新しない
       };
-      const savedDelivery = await handleSave(updatedDelivery); // 更新されたデータを取得
+      const savedDelivery = await handleSave(updatedDelivery);
 
       const pdfData: DeliveryNotePdfProps = {
-        deliveryNoteNumber: savedDelivery.delivery_number || '未設定', // 更新された納品書番号を使用
-        deliveryDate: savedDelivery.delivery_date, // 納品日
+        deliveryNoteNumber: savedDelivery.delivery_number || '未設定',
+        deliveryDate: savedDelivery.delivery_date,
         companyInfo: {
           name: companyInfo.company_name,
           postalCode: companyInfo.company_postalCode,
@@ -377,7 +396,7 @@ export default function DeliveryRegisterPage() {
           code: customer.customer_id,
           postalCode: customer.customer_postalCode,
           address: customer.customer_address,
-          name: customer.customer_formalName || customer.customer_name, // 正式名称があればそれを使用
+          name: customer.customer_formalName || customer.customer_name,
         },
         deliveryItems: [
           {
@@ -404,25 +423,61 @@ export default function DeliveryRegisterPage() {
         }),
       });
 
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `納品書_${savedDelivery.delivery_number || savedDelivery.delivery_id}.pdf`; // 更新された納品書番号を使用
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        window.URL.revokeObjectURL(url);
-        alert('納品書を生成しました。');
-      } else {
-        console.error('Failed to generate PDF:', response.statusText);
-        alert('納品書生成に失敗しました。');
+      if (!response.ok) {
+        throw new Error(`Failed to generate PDF: ${response.statusText}`);
       }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `納品書_${savedDelivery.delivery_number || savedDelivery.delivery_id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      return true; // 成功
     } catch (error) {
       console.error('Error generating PDF or updating delivery status:', error);
-      alert('納品書生成またはデータ更新中にエラーが発生しました。');
+      throw error; // エラーを再スローして呼び出し元で処理
     }
+  };
+
+  const handleBulkIssue = async () => {
+    const selectedDeliveries = deliveries.filter(d => d.isCheckedForIssue);
+
+    if (selectedDeliveries.length === 0) {
+      alert('発行する納品書を選択してください。');
+      return;
+    }
+
+    if (!confirm(`${selectedDeliveries.length}件の納品書を一括発行しますか？`)) {
+      return;
+    }
+
+    let successCount = 0;
+    let errorCount = 0;
+    const errorDeliveryIds: string[] = [];
+
+    for (const delivery of selectedDeliveries) {
+      try {
+        await handleIssueDelivery(delivery);
+        successCount++;
+      } catch (error) {
+        errorCount++;
+        errorDeliveryIds.push(delivery.delivery_id);
+      }
+    }
+
+    let message = `${successCount}件の納品書を発行しました。`;
+    if (errorCount > 0) {
+      message += `
+${errorCount}件の納品書の発行に失敗しました: ${errorDeliveryIds.join(', ')}`;
+    }
+    alert(message);
+
+    // 処理後にリストを再フェッチして最新の状態を反映
+    fetchDeliveries();
   };
 
   // 取引先名候補のフィルタリングとソート
@@ -805,10 +860,19 @@ export default function DeliveryRegisterPage() {
         </form>
 
         <h2 className="text-size-30 font-bold text-center mt-8 mb-4">納品リスト</h2>
+        <div className="flex justify-end mb-4">
+          <button
+            onClick={handleBulkIssue}
+            className="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+          >
+            選択した納品書を一括発行
+          </button>
+        </div>
         <div className="overflow-x-auto">
           <table className="min-w-full border-collapse border border-gray-300">
             <thead>
               <tr className="bg-blue-600">
+                <th className="py-2 px-4 text-white font-bold text-sm text-center border border-gray-300 whitespace-nowrap">発行</th>
                 <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap cursor-pointer" onClick={() => handleSort('delivery_id')}>
                   納品ID {sortConfig.key === 'delivery_id' ? (sortConfig.direction === 'ascending' ? ' ⬆️' : ' ⬇️') : ''}
                   <br /><input type="text" placeholder="Filter" value={filters.delivery_id || ''} onChange={(e) => handleFilterChange('delivery_id', e.target.value)} className="mt-1 p-1 w-full text-gray-800 rounded text-xs" onClick={(e) => e.stopPropagation()} />
@@ -895,12 +959,29 @@ export default function DeliveryRegisterPage() {
                 </th>
                 <th className="py-2 px-4 text-white font-bold text-sm text-center border border-gray-300 whitespace-nowrap">編集</th>
                 <th className="py-2 px-4 text-white font-bold text-sm text-center border border-gray-300 whitespace-nowrap">削除</th>
-                <th className="py-2 px-4 text-white font-bold text-sm text-center border border-gray-300 whitespace-nowrap">発行</th>
+                <th className="py-2 px-4 text-white font-bold text-sm text-center border border-gray-300 whitespace-nowrap">
+                  <input
+                    type="checkbox"
+                    checked={isAllSelected}
+                    onChange={handleSelectAll}
+                    className="form-checkbox h-4 w-4 text-blue-600"
+                  />
+                  発行
+                </th>
               </tr>
             </thead>
             <tbody>
               {filteredAndSortedDeliveries.map((delivery) => (
                 <tr key={delivery.delivery_id} className="even:bg-gray-100">
+                  <td className="py-2 px-4 text-center border border-gray-300 text-base">
+                    <input
+                      type="checkbox"
+                      checked={delivery.isCheckedForIssue || false}
+                      onChange={(e) => handleCheckboxChange(delivery.delivery_id, e.target.checked)}
+                      className="form-checkbox h-4 w-4 text-blue-600"
+                      disabled={delivery.isEditing} // 編集中はチェックボックスを無効化
+                    />
+                  </td>
                   <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">{delivery.delivery_id}</td>
                   <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">
                     {delivery.isEditing ? (
@@ -1170,16 +1251,6 @@ export default function DeliveryRegisterPage() {
                         className="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded text-xs"
                       >
                         削除
-                      </button>
-                    )}
-                  </td>
-                  <td className="py-2 px-4 text-center border border-gray-300 text-base">
-                    {!delivery.isEditing && (
-                      <button
-                        onClick={() => handleIssueDelivery(delivery.delivery_id)}
-                        className="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded text-xs"
-                      >
-                        発行
                       </button>
                     )}
                   </td>

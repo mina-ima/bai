@@ -8,7 +8,6 @@ const dataFilePath = path.join(process.cwd(), 'public', 'data', 'delivery_list.j
 async function readData(): Promise<Delivery[]> {
   try {
     const data = await fs.readFile(dataFilePath, 'utf-8');
-    console.log('readData: File content read successfully.');
     return JSON.parse(data).map((delivery: Delivery) => ({
       ...delivery,
       total_amount: typeof delivery.total_amount === 'string' && delivery.total_amount === '' ? 0 : Number(delivery.total_amount),
@@ -18,7 +17,6 @@ async function readData(): Promise<Delivery[]> {
     }));
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      console.log('readData: File not found, returning empty array.');
       return [];
     }
     console.error('readData: Error reading data:', error);
@@ -27,9 +25,7 @@ async function readData(): Promise<Delivery[]> {
 }
 
 async function writeData(data: Delivery[]): Promise<void> {
-  console.log('writeData: Writing data to file:', JSON.stringify(data, null, 2));
   await fs.writeFile(dataFilePath, JSON.stringify(data, null, 2));
-  console.log('writeData: Data written successfully.');
 }
 
 // Helper function to normalize a date string to the start of the day
@@ -40,17 +36,13 @@ const normalizeDate = (dateString: string) => {
 };
 
 function generateNextId(prefix: string, existingData: Delivery[], idField: keyof Delivery): string {
-  console.log('generateNextId: existingData received:', existingData.map(d => d[idField]));
   let maxIdNum = 0;
-  const regex = new RegExp(`^${prefix}(\\d{9})$`); // Regex to match prefix + 9 digits
+  const regex = new RegExp(`^${prefix}(\d{9})$`); // Regex to match prefix + 9 digits
   for (const data of existingData) {
     const currentId = data[idField] as string;
-    console.log(`generateNextId: Processing ID: ${currentId}`); // Added log
     const match = currentId.match(regex);
-    console.log(`generateNextId: Regex match result for ${currentId}:`, match); // Added log
     if (match) {
       const idNum = parseInt(match[1], 10);
-      console.log(`generateNextId: Parsed idNum for ${currentId}:`, idNum); // Added log
       if (!isNaN(idNum) && idNum > maxIdNum) {
         maxIdNum = idNum;
       }
@@ -59,7 +51,6 @@ function generateNextId(prefix: string, existingData: Delivery[], idField: keyof
   const nextIdNum = maxIdNum + 1;
   const paddedId = String(nextIdNum).padStart(9, '0');
   const newId = prefix + paddedId;
-  console.log('generateNextId: Generated new ID:', newId, 'from maxIdNum:', maxIdNum);
   return newId;
 }
 
@@ -85,10 +76,6 @@ export async function GET(request: Request) {
 
     // フィルタリングロジック
     allData = allData.filter(delivery => {
-      console.log(`
---- Filtering Delivery ID: ${delivery.delivery_id} ---`);
-      console.log(`Original delivery_date: ${delivery.delivery_date}`);
-      console.log(`Original delivery_invoiceDate: ${delivery.delivery_invoiceDate}`);
       // 納品ID
       const deliveryId = searchParams.get('delivery_id');
       if (deliveryId && !delivery.delivery_id.includes(deliveryId)) return false;
@@ -131,14 +118,6 @@ export async function GET(request: Request) {
       const salesGroup = searchParams.get('delivery_salesGroup');
       if (salesGroup && !delivery.delivery_salesGroup.includes(salesGroup)) return false;
 
-      // 取引先名
-      const customerName = searchParams.get('customer_name');
-      if (customerName && !delivery.customer_name.includes(customerName)) return false;
-
-      // 納品先名
-      const shippingName = searchParams.get('delivery_shippingName');
-      if (shippingName && !delivery.delivery_shippingName.includes(shippingName)) return false;
-
       // 納品書番号
       const deliveryNumber = searchParams.get('delivery_number');
       if (deliveryNumber && !delivery.delivery_number.includes(deliveryNumber)) return false;
@@ -163,11 +142,9 @@ export async function GET(request: Request) {
 
       if (deliveryDateFromStr) {
         const filterDateFrom = normalizeDate(deliveryDateFromStr);
-        console.log(`deliveryDateFromStr: ${deliveryDateFromStr}, filterDateFrom: ${filterDateFrom.toISOString()}, normalizedDeliveryDate: ${normalizedDeliveryDate.toISOString()}`);
         if (isNaN(filterDateFrom.getTime()) || isNaN(normalizedDeliveryDate.getTime())) {
           console.warn(`Invalid delivery_date_from or delivery.delivery_date for delivery ID ${delivery.delivery_id}`);
         } else if (normalizedDeliveryDate < filterDateFrom) {
-          console.log(`deliveryDate ${normalizedDeliveryDate.toISOString()} is before filterDateFrom ${filterDateFrom.toISOString()}`);
           return false;
         }
       }
@@ -175,11 +152,9 @@ export async function GET(request: Request) {
         const filterDateTo = normalizeDate(deliveryDateToStr);
         // filterDateTo を翌日の00:00:00に設定して、指定日全体を含むようにする
         filterDateTo.setDate(filterDateTo.getDate() + 1);
-        console.log(`deliveryDateToStr: ${deliveryDateToStr}, filterDateTo (adjusted): ${filterDateTo.toISOString()}, normalizedDeliveryDate: ${normalizedDeliveryDate.toISOString()}`);
         if (isNaN(filterDateTo.getTime()) || isNaN(normalizedDeliveryDate.getTime())) {
           console.warn(`Invalid delivery_date_to or delivery.delivery_date for delivery ID ${delivery.delivery_id}`);
         } else if (normalizedDeliveryDate >= filterDateTo) {
-          console.log(`deliveryDate ${normalizedDeliveryDate.toISOString()} is on or after filterDateTo (adjusted) ${filterDateTo.toISOString()}`);
           return false;
         }
       }
@@ -192,11 +167,9 @@ export async function GET(request: Request) {
 
       if (invoiceDateFromStr) {
         const filterInvoiceDateFrom = normalizeDate(invoiceDateFromStr);
-        console.log(`invoiceDateFromStr: ${invoiceDateFromStr}, filterInvoiceDateFrom: ${filterInvoiceDateFrom.toISOString()}, normalizedDeliveryInvoiceDate: ${normalizedDeliveryInvoiceDate.toISOString()}`);
         if (isNaN(filterInvoiceDateFrom.getTime()) || isNaN(normalizedDeliveryInvoiceDate.getTime())) {
           console.warn(`Invalid invoiceDateFrom or delivery.delivery_invoiceDate for delivery ID ${delivery.delivery_id}`);
         } else if (normalizedDeliveryInvoiceDate < filterInvoiceDateFrom) {
-          console.log(`deliveryInvoiceDate ${normalizedDeliveryInvoiceDate.toISOString()} is before filterInvoiceDateFrom ${filterInvoiceDateFrom.toISOString()}`);
           return false;
         }
       }
@@ -204,11 +177,9 @@ export async function GET(request: Request) {
         const filterInvoiceDateTo = normalizeDate(invoiceDateToStr);
         // filterInvoiceDateTo を翌日の00:00:00に設定して、指定日全体を含むようにする
         filterInvoiceDateTo.setDate(filterInvoiceDateTo.getDate() + 1);
-        console.log(`invoiceDateToStr: ${invoiceDateToStr}, filterInvoiceDateTo (adjusted): ${filterInvoiceDateTo.toISOString()}, normalizedDeliveryInvoiceDate: ${normalizedDeliveryInvoiceDate.toISOString()}`);
         if (isNaN(filterInvoiceDateTo.getTime()) || isNaN(normalizedDeliveryInvoiceDate.getTime())) {
           console.warn(`Invalid invoiceDateTo or delivery.delivery_invoiceDate for delivery ID ${delivery.delivery_id}`);
         } else if (normalizedDeliveryInvoiceDate >= filterInvoiceDateTo) {
-          console.log(`deliveryInvoiceDate ${normalizedDeliveryInvoiceDate.toISOString()} is on or after filterInvoiceDateTo (adjusted) ${filterInvoiceDateTo.toISOString()}`);
           return false;
         }
       }

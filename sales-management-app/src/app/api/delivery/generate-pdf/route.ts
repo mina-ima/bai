@@ -11,15 +11,12 @@ const fontPath = path.join(process.cwd(), 'public', 'fonts', 'ipaexg.ttf');
 
 // Register font once when the module is loaded
 try {
-  console.log(`Attempting to register font from: ${fontPath}`);
   if (!existsSync(fontPath)) {
     console.error(`Font file does not exist at: ${fontPath}`);
     throw new Error('Font file not found.');
   }
   const fontBuffer = readFileSync(fontPath);
-  console.log(`Font buffer size: ${fontBuffer.length} bytes. Type of fontBuffer: ${typeof fontBuffer}`);
   Font.register({ family: 'NotoSansJP', src: fontPath });
-  console.log('Font registered successfully at module level with Buffer data.');
 } catch (error) {
   console.error('Failed to register font at module level:', error);
   throw new Error('Failed to load font for PDF generation at module level.');
@@ -30,11 +27,9 @@ export async function POST(req: NextRequest) {
         const { deliveries, companyInfo, customers, delivery_number, delivery_date } = await req.json();
 
     if (!deliveries || !Array.isArray(deliveries) || deliveries.length === 0) {
-      console.error('Validation Error: No delivery data provided or invalid format.');
       return NextResponse.json({ message: 'No delivery data provided' }, { status: 400 });
     }
     if (!companyInfo) {
-      console.error('Validation Error: Company info not provided in request.');
       return NextResponse.json({ message: 'Company info not provided' }, { status: 400 });
     }
 
@@ -46,22 +41,22 @@ export async function POST(req: NextRequest) {
       const currentPage = Math.floor(i / itemsPerPage) + 1;
       const totalPages = Math.ceil(deliveries.length / itemsPerPage);
 
-      const representativeCustomer = customers.find((c: any) => c.customer_name === chunk[0].customer_name);
+      const representativeCustomer = customers.find((c: any) => c.customer_id === chunk[0].customer_id);
 
       const pdfData: DeliveryNotePdfProps = {
-        deliveryNoteNumber: delivery_number || chunk[0].delivery_number || '未設定',
-                deliveryDate: delivery_date,
+        deliveryNoteNumber: chunk[0].delivery_number || delivery_number || '未設定',
+        deliveryDate: chunk[0].delivery_date,
         companyInfo: {
-          name: companyInfo.name,
-          postalCode: companyInfo.postalCode,
-          address: companyInfo.address,
-          phone: companyInfo.phone,
-          fax: companyInfo.fax,
-          bankName: companyInfo.bankName,
-          branchName: companyInfo.branchName,
-          accountType: companyInfo.accountType,
-          accountNumber: companyInfo.accountNumber,
-          personInCharge: companyInfo.personInCharge,
+          name: companyInfo.company_name,
+          postalCode: companyInfo.company_postalCode,
+          address: companyInfo.company_address,
+          phone: companyInfo.company_phone,
+          fax: companyInfo.company_fax,
+          bankName: companyInfo.company_bankName,
+          branchName: companyInfo.company_bankBranch,
+          accountType: companyInfo.company_bankType,
+          accountNumber: companyInfo.company_bankNumber,
+          personInCharge: companyInfo.company_contactPerson,
         },
         deliveryItems: chunk.map((item: any) => ({
           productCode: item.productCode,
@@ -73,10 +68,10 @@ export async function POST(req: NextRequest) {
         currentPage: currentPage,
         totalPages: totalPages,
         customerInfo: representativeCustomer ? {
-          code: representativeCustomer.code,
-          postalCode: representativeCustomer.postalCode,
-          address: representativeCustomer.address,
-          name: representativeCustomer.name,
+          code: representativeCustomer.customer_id,
+          postalCode: representativeCustomer.customer_postalCode,
+          address: representativeCustomer.customer_address,
+          name: representativeCustomer.customer_formalName,
         } : {
           code: '',
           postalCode: '',
@@ -85,7 +80,6 @@ export async function POST(req: NextRequest) {
         },
       };
 
-      console.log('Rendering PDF stream...');
       const pdfStream = await renderToStream(
         React.createElement(Document, null,
           React.createElement(Page, { size: "A4", style: styles.page },
@@ -94,12 +88,10 @@ export async function POST(req: NextRequest) {
           )
         )
       );
-      console.log('PDF stream rendered. Converting to bytes...');
       const pdfBytes = await new Promise<Uint8Array>((resolve, reject) => {
         const chunks: Buffer[] = [];
         pdfStream.on('data', (chunk) => chunks.push(chunk));
         pdfStream.on('end', () => {
-          console.log('PDF stream ended.');
           resolve(Buffer.concat(chunks));
         });
         pdfStream.on('error', (err) => {
@@ -108,17 +100,12 @@ export async function POST(req: NextRequest) {
         });
       });
 
-      console.log('PDF bytes obtained. Loading into PDFDocument...');
       const pdfDoc = await PDFDocument.load(pdfBytes);
-      console.log('PDFDocument loaded. Copying pages...');
       const copiedPages = await combinedPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
       copiedPages.forEach((page) => combinedPdf.addPage(page));
-      console.log('Pages copied and added to combined PDF.');
     }
 
-    console.log('Saving combined PDF...');
     const finalPdfBytes = await combinedPdf.save();
-    console.log('Combined PDF saved.');
 
     const buffer = Buffer.from(finalPdfBytes);
 
