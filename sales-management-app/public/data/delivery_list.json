@@ -22,7 +22,8 @@
     "delivery_date": "2024/9/2",
     "delivery_invoiceDate": "",
     "delivery_quantity": 0,
-    "delivery_total_price": 0
+    "delivery_total_price": 0,
+    "isCheckedForIssue": true
   },
   {
     "delivery_id": "D000000003",
@@ -35,7 +36,7 @@
     "delivery_orderId": "",
     "delivery_salesGroup": "",
     "customer_name": "まほら",
-    "delivery_number": "",
+    "delivery_number": "DS000000001",
     "delivery_invoiceNumber": "",
     "delivery_status": "未",
     "delivery_invoiceStatus": "未",
@@ -47,7 +48,8 @@
     "delivery_date": "2024/9/2",
     "delivery_invoiceDate": "",
     "delivery_quantity": 0,
-    "delivery_total_price": 0
+    "delivery_total_price": 0,
+    "isCheckedForIssue": true
   },
   {
     "delivery_id": "D000000004",
@@ -60,7 +62,7 @@
     "delivery_orderId": "",
     "delivery_salesGroup": "",
     "customer_name": "まほら",
-    "delivery_number": "",
+    "delivery_number": "DS000000001",
     "delivery_invoiceNumber": "",
     "delivery_status": "未",
     "delivery_invoiceStatus": "未",
@@ -72,7 +74,8 @@
     "delivery_date": "2024/9/2",
     "delivery_invoiceDate": "",
     "delivery_quantity": 0,
-    "delivery_total_price": 0
+    "delivery_total_price": 0,
+    "isCheckedForIssue": true
   },
   {
     "delivery_id": "D000000005",
@@ -85,7 +88,7 @@
     "delivery_orderId": "",
     "delivery_salesGroup": "",
     "customer_name": "まほら",
-    "delivery_number": "",
+    "delivery_number": "DS000000001",
     "delivery_invoiceNumber": "",
     "delivery_status": "未",
     "delivery_invoiceStatus": "未",
@@ -97,7 +100,8 @@
     "delivery_date": "2024/9/2",
     "delivery_invoiceDate": "",
     "delivery_quantity": 0,
-    "delivery_total_price": 0
+    "delivery_total_price": 0,
+    "isCheckedForIssue": true
   },
   {
     "delivery_id": "D000000006",
@@ -110,9 +114,9 @@
     "delivery_orderId": "",
     "delivery_salesGroup": "",
     "customer_name": "まほら",
-    "delivery_number": "",
+    "delivery_number": "DS000000001",
     "delivery_invoiceNumber": "",
-    "delivery_status": "未",
+    "delivery_status": "済",
     "delivery_invoiceStatus": "未",
     "total_amount": 267300,
     "delivery_shippingName": "(株)まほら舎　電子事業部",
@@ -122,7 +126,9 @@
     "delivery_date": "2024/9/2",
     "delivery_invoiceDate": "",
     "delivery_quantity": 0,
-    "delivery_total_price": 0
+    "delivery_total_price": 0,
+    "isCheckedForIssue": true,
+    "isEditing": false
   },
   {
     "delivery_id": "D000000007",
@@ -135,9 +141,9 @@
     "delivery_orderId": "",
     "delivery_salesGroup": "",
     "customer_name": "まほら",
-    "delivery_number": "",
+    "delivery_number": "DS000000001",
     "delivery_invoiceNumber": "",
-    "delivery_status": "未",
+    "delivery_status": "済",
     "delivery_invoiceStatus": "未",
     "total_amount": 1975410,
     "delivery_shippingName": "(株)まほら舎　電子事業部",
@@ -147,7 +153,9 @@
     "delivery_date": "2024/9/2",
     "delivery_invoiceDate": "",
     "delivery_quantity": 0,
-    "delivery_total_price": 0
+    "delivery_total_price": 0,
+    "isCheckedForIssue": true,
+    "isEditing": false
   },
   {
     "delivery_id": "D000000008",
@@ -160,9 +168,9 @@
     "delivery_orderId": "",
     "delivery_salesGroup": "",
     "customer_name": "まほら",
-    "delivery_number": "",
+    "delivery_number": "DS000000001",
     "delivery_invoiceNumber": "",
-    "delivery_status": "未",
+    "delivery_status": "済",
     "delivery_invoiceStatus": "未",
     "total_amount": 933720,
     "delivery_shippingName": "(株)まほら舎　電子事業部",
@@ -172,7 +180,9 @@
     "delivery_date": "2024/9/2",
     "delivery_invoiceDate": "",
     "delivery_quantity": 0,
-    "delivery_total_price": 0
+    "delivery_total_price": 0,
+    "isCheckedForIssue": true,
+    "isEditing": false
   },
   {
     "delivery_id": "D000000009",
@@ -197,7 +207,8 @@
     "delivery_date": "2024/9/2",
     "delivery_invoiceDate": "",
     "delivery_quantity": 0,
-    "delivery_total_price": 0
+    "delivery_total_price": 0,
+    "isCheckedForIssue": true
   },
   {
     "delivery_id": "D000000010",
@@ -222,7 +233,8 @@
     "delivery_date": "2024/9/2",
     "delivery_invoiceDate": "",
     "delivery_quantity": 0,
-    "delivery_total_price": 0
+    "delivery_total_price": 0,
+    "isCheckedForIssue": true
   },
   {
     "delivery_id": "D000000011",
@@ -235,9 +247,9 @@
     "delivery_orderId": "",
     "delivery_salesGroup": "",
     "customer_name": "まほら",
-    "delivery_number": "",
+    "delivery_number": "DS000000001",
     "delivery_invoiceNumber": "",
-    "delivery_status": "未",
+    "delivery_status": "済",
     "delivery_invoiceStatus": "未",
     "total_amount": 81000,
     "delivery_shippingName": "(株)まほら舎　電子事業部",
@@ -247,7 +259,8 @@
     "delivery_date": "2024/9/2",
     "delivery_invoiceDate": "",
     "delivery_quantity": 0,
-    "delivery_total_price": 0
+    "delivery_total_price": 0,
+    "isCheckedForIssue": true
   },
   {
     "delivery_id": "D000000012",
@@ -260,9 +273,9 @@
     "delivery_orderId": "",
     "delivery_salesGroup": "",
     "customer_name": "まほら",
-    "delivery_number": "",
+    "delivery_number": "DS000000001",
     "delivery_invoiceNumber": "",
-    "delivery_status": "未",
+    "delivery_status": "済",
     "delivery_invoiceStatus": "未",
     "total_amount": 623000,
     "delivery_shippingName": "(株)まほら舎　電子事業部",
@@ -272,7 +285,8 @@
     "delivery_date": "2024/9/2",
     "delivery_invoiceDate": "",
     "delivery_quantity": 0,
-    "delivery_total_price": 0
+    "delivery_total_price": 0,
+    "isCheckedForIssue": true
   },
   {
     "delivery_id": "D000000013",
@@ -285,9 +299,9 @@
     "delivery_orderId": "",
     "delivery_salesGroup": "",
     "customer_name": "まほら",
-    "delivery_number": "",
+    "delivery_number": "DS000000001",
     "delivery_invoiceNumber": "",
-    "delivery_status": "未",
+    "delivery_status": "済",
     "delivery_invoiceStatus": "未",
     "total_amount": 182347.19999999998,
     "delivery_shippingName": "(株)まほら舎　電子事業部",
@@ -297,7 +311,8 @@
     "delivery_date": "2024/9/2",
     "delivery_invoiceDate": "",
     "delivery_quantity": 0,
-    "delivery_total_price": 0
+    "delivery_total_price": 0,
+    "isCheckedForIssue": true
   },
   {
     "delivery_id": "D000000014",
@@ -322,7 +337,8 @@
     "delivery_date": "2024/9/2",
     "delivery_invoiceDate": "",
     "delivery_quantity": 0,
-    "delivery_total_price": 0
+    "delivery_total_price": 0,
+    "isCheckedForIssue": true
   },
   {
     "delivery_id": "D000000015",
@@ -372,7 +388,8 @@
     "delivery_date": "2024/9/2",
     "delivery_invoiceDate": "",
     "delivery_quantity": 0,
-    "delivery_total_price": 0
+    "delivery_total_price": 0,
+    "isCheckedForIssue": true
   },
   {
     "delivery_id": "D000000017",
@@ -397,7 +414,8 @@
     "delivery_date": "2024/9/2",
     "delivery_invoiceDate": "",
     "delivery_quantity": 0,
-    "delivery_total_price": 0
+    "delivery_total_price": 0,
+    "isCheckedForIssue": true
   },
   {
     "delivery_id": "D000000018",
@@ -422,7 +440,8 @@
     "delivery_date": "2024/9/3",
     "delivery_invoiceDate": "",
     "delivery_quantity": 0,
-    "delivery_total_price": 0
+    "delivery_total_price": 0,
+    "isCheckedForIssue": true
   },
   {
     "delivery_id": "D000000019",
@@ -447,7 +466,8 @@
     "delivery_date": "2024/9/3",
     "delivery_invoiceDate": "",
     "delivery_quantity": 0,
-    "delivery_total_price": 0
+    "delivery_total_price": 0,
+    "isCheckedForIssue": true
   },
   {
     "delivery_id": "D000000020",
@@ -510,9 +530,9 @@
     "delivery_orderId": "",
     "delivery_salesGroup": "",
     "customer_name": "まほら",
-    "delivery_number": "",
+    "delivery_number": "DS000000001",
     "delivery_invoiceNumber": "",
-    "delivery_status": "未",
+    "delivery_status": "済",
     "delivery_invoiceStatus": "未",
     "total_amount": 365316,
     "delivery_shippingName": "(株)まほら舎　電子事業部",
@@ -535,9 +555,9 @@
     "delivery_orderId": "",
     "delivery_salesGroup": "",
     "customer_name": "まほら",
-    "delivery_number": "",
+    "delivery_number": "DS000000001",
     "delivery_invoiceNumber": "",
-    "delivery_status": "未",
+    "delivery_status": "済",
     "delivery_invoiceStatus": "未",
     "total_amount": 397351.5,
     "delivery_shippingName": "(株)まほら舎　電子事業部",
@@ -560,9 +580,9 @@
     "delivery_orderId": "",
     "delivery_salesGroup": "",
     "customer_name": "まほら",
-    "delivery_number": "",
+    "delivery_number": "DS000000001",
     "delivery_invoiceNumber": "",
-    "delivery_status": "未",
+    "delivery_status": "済",
     "delivery_invoiceStatus": "未",
     "total_amount": 285500,
     "delivery_shippingName": "(株)まほら舎　電子事業部",
@@ -660,9 +680,9 @@
     "delivery_orderId": "",
     "delivery_salesGroup": "",
     "customer_name": "まほら",
-    "delivery_number": "",
+    "delivery_number": "DS000000001",
     "delivery_invoiceNumber": "",
-    "delivery_status": "未",
+    "delivery_status": "済",
     "delivery_invoiceStatus": "未",
     "total_amount": 181764,
     "delivery_shippingName": "(株)まほら舎　電子事業部",
@@ -685,9 +705,9 @@
     "delivery_orderId": "",
     "delivery_salesGroup": "",
     "customer_name": "まほら",
-    "delivery_number": "",
+    "delivery_number": "DS000000002",
     "delivery_invoiceNumber": "",
-    "delivery_status": "未",
+    "delivery_status": "済",
     "delivery_invoiceStatus": "未",
     "total_amount": 257793.6,
     "delivery_shippingName": "(株)まほら舎　電子事業部",
@@ -760,9 +780,9 @@
     "delivery_orderId": "",
     "delivery_salesGroup": "",
     "customer_name": "まほら",
-    "delivery_number": "",
+    "delivery_number": "DS000000003",
     "delivery_invoiceNumber": "",
-    "delivery_status": "未",
+    "delivery_status": "済",
     "delivery_invoiceStatus": "未",
     "total_amount": 1975410,
     "delivery_shippingName": "(株)まほら舎　電子事業部",
@@ -772,7 +792,8 @@
     "delivery_date": "2024/9/4",
     "delivery_invoiceDate": "",
     "delivery_quantity": 0,
-    "delivery_total_price": 0
+    "delivery_total_price": 0,
+    "isCheckedForIssue": true
   },
   {
     "delivery_id": "D000000033",
@@ -797,7 +818,8 @@
     "delivery_date": "2024/9/4",
     "delivery_invoiceDate": "",
     "delivery_quantity": 0,
-    "delivery_total_price": 0
+    "delivery_total_price": 0,
+    "isCheckedForIssue": true
   },
   {
     "delivery_id": "D000000034",
@@ -822,7 +844,8 @@
     "delivery_date": "2024/9/4",
     "delivery_invoiceDate": "",
     "delivery_quantity": 0,
-    "delivery_total_price": 0
+    "delivery_total_price": 0,
+    "isCheckedForIssue": true
   },
   {
     "delivery_id": "D000000035",
@@ -1397,7 +1420,8 @@
     "delivery_date": "2024/9/5",
     "delivery_invoiceDate": "",
     "delivery_quantity": 0,
-    "delivery_total_price": 0
+    "delivery_total_price": 0,
+    "isCheckedForIssue": true
   },
   {
     "delivery_id": "D000000058",
@@ -1422,7 +1446,8 @@
     "delivery_date": "2024/9/5",
     "delivery_invoiceDate": "",
     "delivery_quantity": 0,
-    "delivery_total_price": 0
+    "delivery_total_price": 0,
+    "isCheckedForIssue": true
   },
   {
     "delivery_id": "D000000059",
@@ -1447,7 +1472,8 @@
     "delivery_date": "2024/9/5",
     "delivery_invoiceDate": "",
     "delivery_quantity": 0,
-    "delivery_total_price": 0
+    "delivery_total_price": 0,
+    "isCheckedForIssue": true
   },
   {
     "delivery_id": "D000000060",

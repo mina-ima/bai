@@ -73,20 +73,8 @@ export default function DeliveryRegisterPage() {
 
 
   const [inputMode, setInputMode] = useState<'list' | 'free'>('list');
-  const [isAllSelected, setIsAllSelected] = useState(false); // 全選択チェックボックスの状態
 
-  useEffect(() => {
-    // deliveries の変更に応じて isAllSelected を更新
-    setIsAllSelected(deliveries.length > 0 && deliveries.every(d => d.isCheckedForIssue));
-  }, [deliveries]);
-
-  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const checked = e.target.checked;
-    setIsAllSelected(checked);
-    setDeliveries(prevDeliveries =>
-      prevDeliveries.map(delivery => ({ ...delivery, isCheckedForIssue: checked }))
-    );
-  };
+  
 
   const handleInputModeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInputMode(e.target.value as 'list' | 'free');
@@ -307,8 +295,9 @@ export default function DeliveryRegisterPage() {
 
   const handleSave = async (deliveryToSave: EditableDelivery): Promise<Delivery> => {
     try {
-                  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { isEditing, ...deliveryDataToSend } = deliveryToSave;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { isEditing, isCheckedForIssue, ...deliveryDataToSend } = deliveryToSave;
+      
       console.log('handleSave: Sending deliveryDataToSend:', deliveryDataToSend);
       const response = await fetch(`/api/delivery?delivery_id=${deliveryToSave.delivery_id}`, {
         method: 'PUT',
@@ -319,22 +308,20 @@ export default function DeliveryRegisterPage() {
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorData = await response.json();
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
       }
 
       const savedDelivery: Delivery = await response.json();
       console.log('handleSave: Received savedDelivery:', savedDelivery);
 
-      setDeliveries(prevDeliveries =>
-        prevDeliveries.map(delivery =>
-          delivery.delivery_id === savedDelivery.delivery_id ? { ...savedDelivery, isEditing: false } : delivery
-        )
+      // Update local state
+      const updateState = (prev: EditableDelivery[]) => prev.map(d => 
+        d.delivery_id === savedDelivery.delivery_id ? { ...savedDelivery, isEditing: false, isCheckedForIssue: false } : d
       );
-      setOriginalDeliveries(prevOriginal =>
-        prevOriginal.map(delivery =>
-          delivery.delivery_id === savedDelivery.delivery_id ? { ...savedDelivery, isEditing: false } : delivery
-        )
-      );
+      setDeliveries(updateState);
+      setOriginalDeliveries(updateState);
+
       alert('納品データが更新されました。');
       return savedDelivery;
     } catch (e: any) {
@@ -362,24 +349,23 @@ export default function DeliveryRegisterPage() {
     );
   };
 
-  const handleIssueDelivery = async (deliveryToIssue: EditableDelivery) => {
-    const customer = customers.find(c => c.customer_name === deliveryToIssue?.customer_name);
-
-    if (!deliveryToIssue || !companyInfo || !customer) {
-      console.error(`納品書発行に必要な情報が不足しています。納品ID: ${deliveryToIssue?.delivery_id}`);
-      throw new Error(`納品書発行に必要な情報が不足しています。`);
+  const generatePdf = async (delivery: Delivery) => {
+    const customer = customers.find(c => c.customer_name === delivery.customer_name);
+    if (!companyInfo || !customer) {
+      throw new Error(`PDF生成に必要な会社または顧客情報が見つかりません (ID: ${delivery.delivery_id})`);
     }
 
-    try {
-      const updatedDelivery: EditableDelivery = {
-        ...deliveryToIssue,
-        delivery_status: '済',
-      };
-      const savedDelivery = await handleSave(updatedDelivery);
-
-      const pdfData: DeliveryNotePdfProps = {
-        deliveryNoteNumber: savedDelivery.delivery_number || '未設定',
-        deliveryDate: savedDelivery.delivery_date,
+    const pdfResponse = await fetch('/api/delivery/generate-pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        deliveries: [{
+          productCode: delivery.product_name,
+          quantity: delivery.quantity,
+          unit: delivery.delivery_unit,
+          unitPrice: delivery.unit_price,
+          remarks: delivery.delivery_note,
+        }],
         companyInfo: {
           name: companyInfo.company_name,
           postalCode: companyInfo.company_postalCode,
@@ -392,95 +378,121 @@ export default function DeliveryRegisterPage() {
           accountNumber: companyInfo.company_bankNumber,
           personInCharge: companyInfo.company_contactPerson,
         },
-        customerInfo: {
-          code: customer.customer_id,
-          postalCode: customer.customer_postalCode,
-          address: customer.customer_address,
-          name: customer.customer_formalName || customer.customer_name,
-        },
-        deliveryItems: [
-          {
-            productCode: savedDelivery.product_name,
-            quantity: savedDelivery.quantity,
-            unit: savedDelivery.delivery_unit,
-            unitPrice: savedDelivery.unit_price,
-            remarks: savedDelivery.delivery_note,
-          },
-        ],
-      };
+        customers: [customer],
+        delivery_number: delivery.delivery_number,
+        delivery_date: delivery.delivery_date,
+      }),
+    });
 
-      const response = await fetch('/api/delivery/generate-pdf', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          deliveries: pdfData.deliveryItems,
-          companyInfo: pdfData.companyInfo,
-          customers: [pdfData.customerInfo],
-          delivery_number: savedDelivery.delivery_number,
-          delivery_date: savedDelivery.delivery_date,
+    if (!pdfResponse.ok) {
+      throw new Error(`PDFの生成に失敗しました: ${pdfResponse.statusText}`);
+    }
+
+    const blob = await pdfResponse.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `納品書_${delivery.delivery_number}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleIssue = async (consolidated: boolean) => {
+    const selectedDeliveries = deliveries.filter(d => d.isCheckedForIssue);
+    if (selectedDeliveries.length === 0) {
+      alert('発行する納品データを選択してください。');
+      return;
+    }
+
+    const confirmMessage = consolidated
+      ? `${selectedDeliveries.length}件をまとめて1つの納品書として発行しますか？`
+      : `${selectedDeliveries.length}件の納品書を個別に発行しますか？`;
+
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/delivery', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          delivery_ids: selectedDeliveries.map(d => d.delivery_id),
+          issue_individually: !consolidated,
         }),
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to generate PDF: ${response.statusText}`);
+        const errorData = await response.json();
+        throw new Error(errorData.message || '発行処理に失敗しました。');
       }
 
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `納品書_${savedDelivery.delivery_number || savedDelivery.delivery_id}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-      return true; // 成功
-    } catch (error) {
-      console.error('Error generating PDF or updating delivery status:', error);
-      throw error; // エラーを再スローして呼び出し元で処理
-    }
-  };
+      const result = await response.json();
+      const updatedRecords: Delivery[] = result.updated_records;
 
-  const handleBulkIssue = async () => {
-    const selectedDeliveries = deliveries.filter(d => d.isCheckedForIssue);
+      if (consolidated) {
+        // Consolidated PDF generation
+        const customer = customers.find(c => c.customer_name === updatedRecords[0]?.customer_name);
+        if (!companyInfo || !customer) {
+          throw new Error('PDF生成に必要な会社または顧客情報が見つかりません。');
+        }
+        const pdfResponse = await fetch('/api/delivery/generate-pdf', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            deliveries: updatedRecords.map((d: Delivery) => ({
+              productCode: d.product_name,
+              quantity: d.quantity,
+              unit: d.delivery_unit,
+              unitPrice: d.unit_price,
+              remarks: d.delivery_note,
+            })),
+            companyInfo: {
+              name: companyInfo.company_name,
+              postalCode: companyInfo.company_postalCode,
+              address: companyInfo.company_address,
+              phone: companyInfo.company_phone,
+              fax: companyInfo.company_fax,
+              bankName: companyInfo.company_bankName,
+              branchName: companyInfo.company_bankBranch,
+              accountType: companyInfo.company_bankType,
+              accountNumber: companyInfo.company_bankNumber,
+              personInCharge: companyInfo.company_contactPerson,
+            },
+            customers: [customer],
+            delivery_number: updatedRecords[0].delivery_number, // Use the common number
+            delivery_date: updatedRecords[0].delivery_date,
+          }),
+        });
 
-    if (selectedDeliveries.length === 0) {
-      alert('発行する納品書を選択してください。');
-      return;
-    }
-
-    if (!confirm(`${selectedDeliveries.length}件の納品書を一括発行しますか？`)) {
-      return;
-    }
-
-    let successCount = 0;
-    let errorCount = 0;
-    const errorDeliveryIds: string[] = [];
-
-    for (const delivery of selectedDeliveries) {
-      try {
-        await handleIssueDelivery(delivery);
-        successCount++;
-      } catch (error) {
-        errorCount++;
-        errorDeliveryIds.push(delivery.delivery_id);
+        if (!pdfResponse.ok) throw new Error(`PDFの生成に失敗しました: ${pdfResponse.statusText}`);
+        const blob = await pdfResponse.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `納品書_${updatedRecords[0].delivery_number}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+        alert(`納品書 ${updatedRecords[0].delivery_number} を発行しました。`);
+      } else {
+        // Individual PDF generation
+        for (const record of updatedRecords) {
+          await generatePdf(record);
+        }
+        alert(`${updatedRecords.length}件の納品書を個別に発行しました。`);
       }
+
+    } catch (error: any) {
+      alert(`エラー: ${error.message}`);
     }
 
-    let message = `${successCount}件の納品書を発行しました。`;
-    if (errorCount > 0) {
-      message += `
-${errorCount}件の納品書の発行に失敗しました: ${errorDeliveryIds.join(', ')}`;
-    }
-    alert(message);
-
-    // 処理後にリストを再フェッチして最新の状態を反映
-    fetchDeliveries();
+    fetchDeliveries(); // Refresh the list
   };
 
-  // 取引先名候補のフィルタリングとソート
   const filteredAndSortedCustomers = customers
     .filter(customer => {
       const searchTermLower = customerSearchTerm.toLowerCase();
@@ -549,7 +561,7 @@ ${errorCount}件の納品書の発行に失敗しました: ${errorDeliveryIds.j
         } else {
           // Fallback for mixed types or unsupported types
           const aString = String(aValue);
-          const bString = String(bValue);
+          const bString = String(bString);
           return sortConfig.direction === 'ascending'
             ? aString.localeCompare(bString)
             : bString.localeCompare(aString);
@@ -860,19 +872,28 @@ ${errorCount}件の納品書の発行に失敗しました: ${errorDeliveryIds.j
         </form>
 
         <h2 className="text-size-30 font-bold text-center mt-8 mb-4">納品リスト</h2>
-        <div className="flex justify-end mb-4">
+        <div className="flex justify-start mb-4">
           <button
-            onClick={handleBulkIssue}
+            onClick={() => handleIssue(false)} // false for individual
+            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mr-2"
+          >
+            個別納品書発行
+          </button>
+          <button
+            onClick={() => handleIssue(true)} // true for consolidated
             className="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
           >
-            選択した納品書を一括発行
+            一括納品書発行
           </button>
         </div>
+        
         <div className="overflow-x-auto">
           <table className="min-w-full border-collapse border border-gray-300">
             <thead>
               <tr className="bg-blue-600">
-                <th className="py-2 px-4 text-white font-bold text-sm text-center border border-gray-300 whitespace-nowrap">発行</th>
+                <th className="py-2 px-4 text-white font-bold text-sm text-center border border-gray-300 whitespace-nowrap">
+                  選択
+                </th>
                 <th className="py-2 px-4 text-white font-bold text-sm text-left border border-gray-300 whitespace-nowrap cursor-pointer" onClick={() => handleSort('delivery_id')}>
                   納品ID {sortConfig.key === 'delivery_id' ? (sortConfig.direction === 'ascending' ? ' ⬆️' : ' ⬇️') : ''}
                   <br /><input type="text" placeholder="Filter" value={filters.delivery_id || ''} onChange={(e) => handleFilterChange('delivery_id', e.target.value)} className="mt-1 p-1 w-full text-gray-800 rounded text-xs" onClick={(e) => e.stopPropagation()} />
@@ -959,15 +980,7 @@ ${errorCount}件の納品書の発行に失敗しました: ${errorDeliveryIds.j
                 </th>
                 <th className="py-2 px-4 text-white font-bold text-sm text-center border border-gray-300 whitespace-nowrap">編集</th>
                 <th className="py-2 px-4 text-white font-bold text-sm text-center border border-gray-300 whitespace-nowrap">削除</th>
-                <th className="py-2 px-4 text-white font-bold text-sm text-center border border-gray-300 whitespace-nowrap">
-                  <input
-                    type="checkbox"
-                    checked={isAllSelected}
-                    onChange={handleSelectAll}
-                    className="form-checkbox h-4 w-4 text-blue-600"
-                  />
-                  発行
-                </th>
+                
               </tr>
             </thead>
             <tbody>
@@ -1021,7 +1034,7 @@ ${errorCount}件の納品書の発行に失敗しました: ${errorDeliveryIds.j
                   </td>
                   <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">
                     {/* Total amount is calculated, not directly editable */}
-                    {delivery.total_amount.toFixed(2)}
+                    {(delivery.quantity * delivery.unit_price).toFixed(2)}
                   </td>
                   <td className="py-2 px-4 text-left border border-gray-300 text-base whitespace-nowrap">
                     {delivery.isEditing ? (

@@ -37,14 +37,17 @@ const normalizeDate = (dateString: string) => {
 
 function generateNextId(prefix: string, existingData: Delivery[], idField: keyof Delivery): string {
   let maxIdNum = 0;
-  const regex = new RegExp(`^${prefix}(\d{9})$`); // Regex to match prefix + 9 digits
+  const regex = new RegExp(`^${prefix}(\d+)$`); // Regex to match prefix + any digits
   for (const data of existingData) {
     const currentId = data[idField] as string;
-    const match = currentId.match(regex);
-    if (match) {
-      const idNum = parseInt(match[1], 10);
-      if (!isNaN(idNum) && idNum > maxIdNum) {
-        maxIdNum = idNum;
+    // Check if currentId exists before trying to match
+    if (currentId) {
+      const match = currentId.match(regex);
+      if (match) {
+        const idNum = parseInt(match[1], 10);
+        if (!isNaN(idNum) && idNum > maxIdNum) {
+          maxIdNum = idNum;
+        }
       }
     }
   }
@@ -58,7 +61,7 @@ export async function POST(request: Request) {
   try {
     const newData: Delivery = await request.json();
     const allData = await readData();
-    // 自動付番の項目を設定
+    // Set the delivery ID with 'D' prefix
     newData.delivery_id = generateNextId('D', allData, 'delivery_id');
     allData.push(newData);
     await writeData(allData);
@@ -74,113 +77,95 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     let allData = await readData();
 
-    // フィルタリングロジック
+    // Filtering logic
     allData = allData.filter(delivery => {
-      // 納品ID
+      // Delivery ID
       const deliveryId = searchParams.get('delivery_id');
       if (deliveryId && !delivery.delivery_id.includes(deliveryId)) return false;
 
-      // 納品品番
+      // Product Name
       const productName = searchParams.get('product_name');
       if (productName && !delivery.product_name.includes(productName)) return false;
 
-      // 納品数量 (From/To)
+      // Quantity (From/To)
       const quantityFrom = searchParams.get('quantity_from');
       const quantityTo = searchParams.get('quantity_to');
       if (quantityFrom && delivery.quantity < parseFloat(quantityFrom)) return false;
       if (quantityTo && delivery.quantity > parseFloat(quantityTo)) return false;
 
-      // 納品単価 (From/To)
+      // Unit Price (From/To)
       const unitPriceFrom = searchParams.get('unit_price_from');
       const unitPriceTo = searchParams.get('unit_price_to');
       if (unitPriceFrom && delivery.unit_price < parseFloat(unitPriceFrom)) return false;
       if (unitPriceTo && delivery.unit_price > parseFloat(unitPriceTo)) return false;
 
-      // 合計金額 (From/To)
+      // Total Amount (From/To)
       const totalAmountFrom = searchParams.get('total_amount_from');
       const totalAmountTo = searchParams.get('total_amount_to');
       if (totalAmountFrom && delivery.total_amount < parseFloat(totalAmountFrom)) return false;
       if (totalAmountTo && delivery.total_amount > parseFloat(totalAmountTo)) return false;
 
-      // 納品備考
+      // Delivery Note
       const deliveryNote = searchParams.get('delivery_note');
       if (deliveryNote && !delivery.delivery_note.includes(deliveryNote)) return false;
 
-      // 納品税区分
+      // Delivery Tax
       const deliveryTax = searchParams.get('delivery_tax');
       if (deliveryTax && delivery.delivery_tax !== parseFloat(deliveryTax)) return false;
 
-      // 注文番号
+      // Order ID
       const orderId = searchParams.get('delivery_orderId');
       if (orderId && !delivery.delivery_orderId.includes(orderId)) return false;
 
-      // 売上グループ
+      // Sales Group
       const salesGroup = searchParams.get('delivery_salesGroup');
       if (salesGroup && !delivery.delivery_salesGroup.includes(salesGroup)) return false;
 
-      // 納品書番号
+      // Delivery Number
       const deliveryNumber = searchParams.get('delivery_number');
-      if (deliveryNumber && !delivery.delivery_number.includes(deliveryNumber)) return false;
+      if (deliveryNumber && delivery.delivery_number && !delivery.delivery_number.includes(deliveryNumber)) return false;
 
-      // 請求書番号
+      // Invoice Number
       const invoiceNumber = searchParams.get('delivery_invoiceNumber');
-      if (invoiceNumber && !delivery.delivery_invoiceNumber.includes(invoiceNumber)) return false;
+      if (invoiceNumber && delivery.invoice_number && !delivery.invoice_number.includes(invoiceNumber)) return false;
 
-      // 納品書ステータス
+      // Delivery Status
       const deliveryStatus = searchParams.get('delivery_status');
       if (deliveryStatus && delivery.delivery_status !== deliveryStatus) return false;
 
-      // 請求書ステータス
+      // Invoice Status
       const invoiceStatus = searchParams.get('delivery_invoiceStatus');
-      if (invoiceStatus && delivery.delivery_invoiceStatus !== invoiceStatus) return false;
+      if (invoiceStatus && delivery.invoice_invoiceStatus !== invoiceStatus) return false;
 
-      // 納品日 (From/To)
+      // Delivery Date (From/To)
       const deliveryDateFromStr = searchParams.get('delivery_date_from');
       const deliveryDateToStr = searchParams.get('delivery_date_to');
-
-      const normalizedDeliveryDate = normalizeDate(delivery.delivery_date);
-
-      if (deliveryDateFromStr) {
-        const filterDateFrom = normalizeDate(deliveryDateFromStr);
-        if (isNaN(filterDateFrom.getTime()) || isNaN(normalizedDeliveryDate.getTime())) {
-          console.warn(`Invalid delivery_date_from or delivery.delivery_date for delivery ID ${delivery.delivery_id}`);
-        } else if (normalizedDeliveryDate < filterDateFrom) {
-          return false;
+      if (delivery.delivery_date) {
+        const normalizedDeliveryDate = normalizeDate(delivery.delivery_date);
+        if (deliveryDateFromStr) {
+          const filterDateFrom = normalizeDate(deliveryDateFromStr);
+          if (normalizedDeliveryDate < filterDateFrom) return false;
         }
-      }
-      if (deliveryDateToStr) {
-        const filterDateTo = normalizeDate(deliveryDateToStr);
-        // filterDateTo を翌日の00:00:00に設定して、指定日全体を含むようにする
-        filterDateTo.setDate(filterDateTo.getDate() + 1);
-        if (isNaN(filterDateTo.getTime()) || isNaN(normalizedDeliveryDate.getTime())) {
-          console.warn(`Invalid delivery_date_to or delivery.delivery_date for delivery ID ${delivery.delivery_id}`);
-        } else if (normalizedDeliveryDate >= filterDateTo) {
-          return false;
+        if (deliveryDateToStr) {
+          const filterDateTo = normalizeDate(deliveryDateToStr);
+          filterDateTo.setDate(filterDateTo.getDate() + 1);
+          if (normalizedDeliveryDate >= filterDateTo) return false;
         }
       }
 
-      // 請求日 (From/To)
+      // Invoice Date (From/To)
       const invoiceDateFromStr = searchParams.get('delivery_invoiceDate_from');
       const invoiceDateToStr = searchParams.get('delivery_invoiceDate_to');
-
-      const normalizedDeliveryInvoiceDate = normalizeDate(delivery.delivery_invoiceDate);
-
-      if (invoiceDateFromStr) {
-        const filterInvoiceDateFrom = normalizeDate(invoiceDateFromStr);
-        if (isNaN(filterInvoiceDateFrom.getTime()) || isNaN(normalizedDeliveryInvoiceDate.getTime())) {
-          console.warn(`Invalid invoiceDateFrom or delivery.delivery_invoiceDate for delivery ID ${delivery.delivery_id}`);
-        } else if (normalizedDeliveryInvoiceDate < filterInvoiceDateFrom) {
-          return false;
+      if (delivery.delivery_invoiceDate) {
+        const normalizedDeliveryInvoiceDate = normalizeDate(delivery.delivery_invoiceDate);
+        if (invoiceDateFromStr) {
+          const filterInvoiceDateFrom = normalizeDate(invoiceDateFromStr);
+          if (normalizedDeliveryInvoiceDate < filterInvoiceDateFrom) return false;
         }
-      }
-      if (invoiceDateToStr) {
-        const filterInvoiceDateTo = normalizeDate(invoiceDateToStr);
-        // filterInvoiceDateTo を翌日の00:00:00に設定して、指定日全体を含むようにする
-        filterInvoiceDateTo.setDate(filterInvoiceDateTo.getDate() + 1);
-        if (isNaN(filterInvoiceDateTo.getTime()) || isNaN(normalizedDeliveryInvoiceDate.getTime())) {
-          console.warn(`Invalid invoiceDateTo or delivery.delivery_invoiceDate for delivery ID ${delivery.delivery_id}`);
-        } else if (normalizedDeliveryInvoiceDate >= filterInvoiceDateTo) {
-          return false;
+        if (invoiceDateToStr) {
+          const filterInvoiceDateTo = normalizeDate(invoiceDateToStr);
+          filterInvoiceDateTo.setDate(filterInvoiceDateTo.getDate() + 1);
+          if (normalizedDeliveryInvoiceDate >= filterInvoiceDateTo) return false;
         }
       }
 
@@ -196,30 +181,91 @@ export async function GET(request: Request) {
 
 export async function PUT(request: Request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const deliveryId = searchParams.get('delivery_id');
-    const updatedData: Delivery = await request.json();
-
-    if (!deliveryId) {
-      return NextResponse.json({ message: 'delivery_id is required' }, { status: 400 });
-    }
-
+    const body = await request.json();
     const allData = await readData();
-    const index = allData.findIndex(delivery => delivery.delivery_id === deliveryId);
 
-    if (index === -1) {
-      return NextResponse.json({ message: 'Delivery not found' }, { status: 404 });
+    // Case 1: Bulk operations based on delivery_ids array
+    if (body.delivery_ids && Array.isArray(body.delivery_ids)) {
+      const { delivery_ids, issue_individually } = body;
+      if (delivery_ids.length === 0) {
+        return NextResponse.json({ message: 'delivery_ids array cannot be empty' }, { status: 400 });
+      }
+
+      const updatedRecords: Delivery[] = [];
+
+      if (issue_individually === true) {
+        // INDIVIDUAL ISSUANCE: Generate unique numbers sequentially.
+        let maxIdNum = 0;
+        const regex = new RegExp(`^DS(\d+)`);
+        for (const data of allData) {
+          const currentId = data.delivery_number as string;
+          if (currentId) {
+            const match = currentId.match(regex);
+            if (match) {
+              const idNum = parseInt(match[1], 10);
+              if (!isNaN(idNum) && idNum > maxIdNum) {
+                maxIdNum = idNum;
+              }
+            }
+          }
+        }
+        let nextIdCounter = maxIdNum + 1;
+
+        delivery_ids.forEach((id: string) => {
+          const index = allData.findIndex(delivery => delivery.delivery_id === id);
+          if (index !== -1) {
+            const paddedId = String(nextIdCounter).padStart(9, '0');
+            const newDeliveryNumber = 'DS' + paddedId;
+            allData[index].delivery_number = newDeliveryNumber;
+            allData[index].delivery_status = '済';
+            updatedRecords.push(allData[index]);
+            nextIdCounter++;
+          }
+        });
+
+      } else {
+        // CONSOLIDATED ISSUANCE: Generate a single 'DN' number and assign it to all.
+        const newDeliveryNumber = generateNextId('DN', allData, 'delivery_number');
+        delivery_ids.forEach((id: string) => {
+          const index = allData.findIndex(delivery => delivery.delivery_id === id);
+          if (index !== -1) {
+            allData[index].delivery_number = newDeliveryNumber;
+            allData[index].delivery_status = '済';
+            updatedRecords.push(allData[index]);
+          }
+        });
+      }
+
+      if (updatedRecords.length === 0) {
+        return NextResponse.json({ message: 'None of the provided delivery_ids were found' }, { status: 404 });
+      }
+
+      await writeData(allData);
+      return NextResponse.json({
+        message: 'Delivery numbers issued successfully',
+        updated_records: updatedRecords,
+      }, { status: 200 });
+
+    } else { // Case 2: Simple single record update (from form save)
+      const { searchParams } = new URL(request.url);
+      const deliveryId = searchParams.get('delivery_id');
+      const updatedData: Delivery = body;
+
+      if (!deliveryId) {
+        return NextResponse.json({ message: 'delivery_id is required for single update' }, { status: 400 });
+      }
+
+      const index = allData.findIndex(delivery => delivery.delivery_id === deliveryId);
+
+      if (index === -1) {
+        return NextResponse.json({ message: 'Delivery not found' }, { status: 404 });
+      }
+
+      allData[index] = { ...allData[index], ...updatedData, delivery_id: deliveryId };
+
+      await writeData(allData);
+      return NextResponse.json(allData[index], { status: 200 });
     }
-
-    // Update the existing delivery with new data, but keep the original delivery_id
-    // If delivery_number is empty, generate a new one
-    if (!updatedData.delivery_number) {
-      updatedData.delivery_number = generateNextId('DN', allData, 'delivery_number');
-    }
-    allData[index] = { ...allData[index], ...updatedData, delivery_id: deliveryId };
-
-    await writeData(allData);
-    return NextResponse.json(allData[index], { status: 200 });
   } catch (error: any) {
     console.error('Error updating data:', error);
     return NextResponse.json({ message: 'Error updating data' }, { status: 500 });
