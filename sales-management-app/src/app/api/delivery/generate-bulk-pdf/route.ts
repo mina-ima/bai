@@ -1,3 +1,7 @@
+// This API route is dedicated to generating bulk delivery notes.
+// It receives an array of delivery items and combines them into a single PDF document.
+// This separation ensures that changes to bulk generation logic do not affect individual delivery note generation.
+
 import { NextRequest, NextResponse } from 'next/server';
 import { renderToStream, Font, Document, Page } from '@react-pdf/renderer';
 import React from 'react';
@@ -34,8 +38,9 @@ export async function POST(req: NextRequest) {
         const { deliveries, companyInfo, customers, delivery_number, delivery_date } = await req.json();
     console.log('API: Received companyInfo:', JSON.stringify(companyInfo, null, 2));
 
+    // Validate incoming data for bulk generation
     if (!deliveries || !Array.isArray(deliveries) || deliveries.length === 0) {
-      return NextResponse.json({ message: 'No delivery data provided' }, { status: 400 });
+      return NextResponse.json({ message: 'No delivery data provided for bulk generation' }, { status: 400 });
     }
     if (!companyInfo) {
       return NextResponse.json({ message: 'Company info not provided' }, { status: 400 });
@@ -48,9 +53,11 @@ export async function POST(req: NextRequest) {
     console.log('--- Debug: API representativeCustomer ---');
     console.log(representativeCustomer);
 
+    // Create a new PDF document to combine all generated pages
     const combinedPdf = await PDFDocument.create();
-    const itemsPerPage = 10;
+    const itemsPerPage = 10; // Number of delivery items to display per page in the PDF
 
+    // Loop through deliveries and generate PDF pages, then combine them
     for (let i = 0; i < deliveries.length; i += itemsPerPage) {
       const chunk = deliveries.slice(i, i + itemsPerPage);
       const currentPage = Math.floor(i / itemsPerPage) + 1;
@@ -83,14 +90,16 @@ export async function POST(req: NextRequest) {
       };
 
       console.log('Debug: pdfData.companyInfo before rendering:', JSON.stringify(pdfData.companyInfo, null, 2));
+      // Render the PDF page using @react-pdf/renderer
       const pdfStream = await renderToStream(
         React.createElement(Document, null,
           React.createElement(Page, { size: "A4", style: styles.page },
-            React.createElement(DeliveryNoteContent, { data: { ...pdfData, isCopy: true } }),
-            React.createElement(DeliveryNoteContent, { data: { ...pdfData, isCopy: false } })
+            React.createElement(DeliveryNoteContent, { data: { ...pdfData, isCopy: true } }), // Render for copy
+            React.createElement(DeliveryNoteContent, { data: { ...pdfData, isCopy: false } }) // Render for original
           )
         )
       );
+      // Convert the PDF stream to bytes
       const pdfBytes = await new Promise<Uint8Array>((resolve, reject) => {
         const chunks: Buffer[] = [];
         pdfStream.on('data', (chunk) => chunks.push(chunk));
@@ -103,24 +112,27 @@ export async function POST(req: NextRequest) {
         });
       });
 
+      // Load the generated PDF page and copy it to the combined PDF document
       const pdfDoc = await PDFDocument.load(pdfBytes);
       const copiedPages = await combinedPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
       copiedPages.forEach((page) => combinedPdf.addPage(page));
     }
 
+    // Save the final combined PDF document
     const finalPdfBytes = await combinedPdf.save();
 
     const buffer = Buffer.from(finalPdfBytes);
 
+    // Set response headers for PDF download
     const headers = new Headers({
       'Content-Type': 'application/pdf',
-      'Content-Disposition': 'attachment; filename="delivery_notes.pdf"',
+      'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(`納品書_${delivery_number || '未設定'}.pdf`)}`,
     });
 
     return new NextResponse(buffer, { headers });
 
   } catch (error) {
-    console.error('Error generating PDF:', error);
-    return NextResponse.json({ message: 'Error generating PDF' }, { status: 500 });
+    console.error('Error generating bulk PDF:', error);
+    return NextResponse.json({ message: 'Error generating bulk PDF' }, { status: 500 });
   }
 }

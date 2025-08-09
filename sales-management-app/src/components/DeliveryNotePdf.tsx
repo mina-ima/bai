@@ -217,16 +217,13 @@ export const DeliveryNoteContent: React.FC<{ data: DeliveryNotePdfProps }> = ({ 
         </View>
         <View style={styles.companyBlock}>
           <Text style={{ fontSize: 12, color: 'black', fontFamily: 'NotoSansJP' }}>{String(companyInfo.name)}</Text>
-          <Text style={{ fontSize: 9, color: 'black', fontFamily: 'NotoSansJP' }}>{String(companyInfo.postalCode)}</Text>
+          <Text style={{ fontSize: 9, color: 'black', fontFamily: 'NotoSansJP' }}>〒{String(companyInfo.postalCode)}</Text>
           <Text style={{ fontSize: 9, color: 'black', fontFamily: 'NotoSansJP' }}>{String(companyInfo.address)}</Text>
           <Text style={{ fontSize: 9, color: 'black', fontFamily: 'NotoSansJP' }}>TEL: {String(companyInfo.phone)}</Text>
           <Text style={{ fontSize: 9, color: 'black', fontFamily: 'NotoSansJP' }}>FAX: {String(companyInfo.fax)}</Text>
           <Text style={{ fontSize: 9, color: 'black', fontFamily: 'NotoSansJP' }}>{String(companyInfo.mail)}</Text> {/* 追加 */}
           <View style={styles.bankDetailsRow}>
-            <Text style={{ fontSize: 9, color: 'black', fontFamily: 'NotoSansJP' }}>{String(companyInfo.bankName)}</Text>
-            <Text style={{ fontSize: 9, color: 'black', fontFamily: 'NotoSansJP' }}>{String(companyInfo.branchName)}</Text>
-            <Text style={{ fontSize: 9, color: 'black', fontFamily: 'NotoSansJP' }}>{String(companyInfo.accountType)}</Text>
-            <Text style={{ fontSize: 9, color: 'black', fontFamily: 'NotoSansJP' }}>{String(companyInfo.accountNumber)}</Text>
+            <Text style={{ fontSize: 9, color: 'black', fontFamily: 'NotoSansJP' }}>{String(companyInfo.bankName)}</Text><Text style={{ fontSize: 9, color: 'black', fontFamily: 'NotoSansJP' }}>　{String(companyInfo.branchName)}</Text><Text style={{ fontSize: 9, color: 'black', fontFamily: 'NotoSansJP' }}>　{String(companyInfo.accountType)}</Text><Text style={{ fontSize: 9, color: 'black', fontFamily: 'NotoSansJP' }}>　{String(companyInfo.accountNumber)}</Text>
             
           </View>
           <Text style={{ fontSize: 9, color: 'black', fontFamily: 'NotoSansJP' }}>担当者: {String(companyInfo.personInCharge)}</Text>

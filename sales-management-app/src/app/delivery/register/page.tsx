@@ -356,8 +356,10 @@ export default function DeliveryRegisterPage() {
     );
   };
 
+  // Function to generate an individual PDF for a single delivery record.
+  // This now calls the dedicated individual PDF generation API endpoint.
   const generatePdf = async (delivery: Delivery) => {
-    console.log('--- Debug: generatePdf ---');
+    console.log('--- Debug: generatePdf (Individual) ---');
     console.log('Searching for customer name:', delivery.customer_name.trim());
     console.log('Available customer names:', customers.map(c => c.customer_name.trim()));
     const customer = customers.find(c => c.customer_name.trim() === delivery.customer_name.trim());
@@ -367,35 +369,51 @@ export default function DeliveryRegisterPage() {
     }
     console.log('generatePdf: Request body companyInfo:', JSON.stringify(companyInfo, null, 2));
 
-    const pdfResponse = await fetch('/api/delivery/generate-pdf', {
+    // Call the new individual PDF generation API
+    const pdfResponse = await fetch('/api/delivery/generate-individual-pdf', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        deliveries: [{
-          productCode: delivery.product_name,
+        delivery: { // Pass a single delivery object
+          product_name: delivery.product_name,
           quantity: delivery.quantity,
-          unit: delivery.delivery_unit,
-          unitPrice: delivery.unit_price,
-          remarks: delivery.delivery_note,
-        }],
+          unit_price: delivery.unit_price,
+          delivery_unit: delivery.delivery_unit,
+          delivery_note: delivery.delivery_note,
+          delivery_tax: delivery.delivery_tax,
+          delivery_orderId: delivery.delivery_orderId,
+          delivery_salesGroup: delivery.delivery_salesGroup,
+          customer_name: delivery.customer_name,
+          delivery_number: delivery.delivery_number,
+          delivery_invoiceNumber: delivery.delivery_invoiceNumber,
+          delivery_status: delivery.delivery_status,
+          delivery_invoiceStatus: delivery.delivery_invoiceStatus,
+          total_amount: delivery.total_amount,
+          delivery_shippingName: delivery.delivery_shippingName,
+          delivery_shippingPostalcode: delivery.delivery_shippingPostalcode,
+          delivery_shippingAddress: delivery.delivery_shippingAddress,
+          delivery_shippingPhone: delivery.delivery_shippingPhone,
+          delivery_date: delivery.delivery_date,
+          delivery_invoiceDate: delivery.delivery_invoiceDate,
+        },
         companyInfo: {
           name: companyInfo.company_name,
           postalCode: companyInfo.company_postalCode,
           address: companyInfo.company_address,
           phone: companyInfo.company_phone,
           fax: companyInfo.company_fax,
-          mail: companyInfo.company_mail, // Added
+          mail: companyInfo.company_mail,
           bankName: companyInfo.company_bankName,
           branchName: companyInfo.company_bankBranch,
           accountType: companyInfo.company_bankType,
           accountNumber: companyInfo.company_bankNumber,
-          bankHolder: companyInfo.company_bankHolder, // Added
+          bankHolder: companyInfo.company_bankHolder,
           personInCharge: companyInfo.company_contactPerson,
-          invoiceNumber: companyInfo.company_invoiceNumber, // Added
+          invoiceNumber: companyInfo.company_invoiceNumber,
         },
-        customers: [customer],
-        delivery_number: delivery.delivery_number,
-        delivery_date: delivery.delivery_date,
+        customer: customer, // Pass a single customer object
+        delivery_number: delivery.delivery_number, // Redundant but kept for clarity/consistency with old API
+        delivery_date: delivery.delivery_date, // Redundant but kept for clarity/consistency with old API
       }),
     });
 
@@ -448,7 +466,7 @@ export default function DeliveryRegisterPage() {
       const updatedRecords: Delivery[] = result.updated_records;
 
       if (consolidated) {
-        // Consolidated PDF generation
+        // Bulk PDF generation: Call the dedicated bulk PDF generation API
         const customerName = updatedRecords[0]?.customer_name;
         const customer = customers.find(c => c.customer_name.trim() === customerName?.trim());
         if (!companyInfo || !customer) {
@@ -456,7 +474,7 @@ export default function DeliveryRegisterPage() {
           throw new Error('PDF生成に必要な会社または顧客情報が見つかりません。');
         }
         console.log('handleIssue: Request body companyInfo:', JSON.stringify(companyInfo, null, 2));
-        const pdfResponse = await fetch('/api/delivery/generate-pdf', {
+        const pdfResponse = await fetch('/api/delivery/generate-bulk-pdf', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -466,6 +484,8 @@ export default function DeliveryRegisterPage() {
               unit: d.delivery_unit,
               unitPrice: d.unit_price,
               remarks: d.delivery_note,
+              delivery_number: d.delivery_number, // Ensure delivery_number is passed for each item
+              delivery_date: d.delivery_date, // Ensure delivery_date is passed for each item
             })),
             companyInfo: {
               name: companyInfo.company_name,
@@ -473,18 +493,18 @@ export default function DeliveryRegisterPage() {
               address: companyInfo.company_address,
               phone: companyInfo.company_phone,
               fax: companyInfo.company_fax,
-              mail: companyInfo.company_mail, // Added
+              mail: companyInfo.company_mail,
               bankName: companyInfo.company_bankName,
               branchName: companyInfo.company_bankBranch,
               accountType: companyInfo.company_bankType,
               accountNumber: companyInfo.company_bankNumber,
-              bankHolder: companyInfo.company_bankHolder, // Added
+              bankHolder: companyInfo.company_bankHolder,
               personInCharge: companyInfo.company_contactPerson,
-              invoiceNumber: companyInfo.company_invoiceNumber, // Added
+              invoiceNumber: companyInfo.company_invoiceNumber,
             },
             customers: [customer],
-            delivery_number: updatedRecords[0].delivery_number, // Use the common number
-            delivery_date: updatedRecords[0].delivery_date,
+            delivery_number: updatedRecords[0].delivery_number, // Use the common number for filename
+            delivery_date: updatedRecords[0].delivery_date, // Use the common date for filename
           }),
         });
 
@@ -500,9 +520,9 @@ export default function DeliveryRegisterPage() {
         window.URL.revokeObjectURL(url);
         alert(`納品書 ${updatedRecords[0].delivery_number} を発行しました。`);
       } else {
-        // Individual PDF generation
+        // Individual PDF generation: Iterate and call the individual PDF generation function
         for (const record of updatedRecords) {
-          await generatePdf(record);
+          await generatePdf(record); // This now calls the generatePdf function which uses the individual API
         }
         alert(`${updatedRecords.length}件の納品書を個別に発行しました。`);
       }
