@@ -35,12 +35,12 @@ const normalizeDate = (dateString: string) => {
   return date;
 };
 
-function generateNextId(prefix: string, existingData: Delivery[], idField: keyof Delivery): string {
+// Helper function to get the maximum numeric ID for a given prefix
+function getMaxNumericId(prefix: string, existingData: Delivery[], idField: keyof Delivery): number {
   let maxIdNum = 0;
-  const regex = new RegExp(`^${prefix}(\d+)$`); // Regex to match prefix + any digits
+  const regex = new RegExp(`^${prefix}(\\d+)$`);
   for (const data of existingData) {
     const currentId = data[idField] as string;
-    // Check if currentId exists before trying to match
     if (currentId) {
       const match = currentId.match(regex);
       if (match) {
@@ -51,6 +51,11 @@ function generateNextId(prefix: string, existingData: Delivery[], idField: keyof
       }
     }
   }
+  return maxIdNum;
+}
+
+function generateNextId(prefix: string, existingData: Delivery[], idField: keyof Delivery): string {
+  const maxIdNum = getMaxNumericId(prefix, existingData, idField);
   const nextIdNum = maxIdNum + 1;
   const paddedId = String(nextIdNum).padStart(9, '0');
   const newId = prefix + paddedId;
@@ -127,7 +132,7 @@ export async function GET(request: Request) {
 
       // Invoice Number
       const invoiceNumber = searchParams.get('delivery_invoiceNumber');
-      if (invoiceNumber && delivery.invoice_number && !delivery.invoice_number.includes(invoiceNumber)) return false;
+      if (invoiceNumber && delivery.delivery_invoiceNumber && !delivery.delivery_invoiceNumber.includes(invoiceNumber)) return false;
 
       // Delivery Status
       const deliveryStatus = searchParams.get('delivery_status');
@@ -135,7 +140,7 @@ export async function GET(request: Request) {
 
       // Invoice Status
       const invoiceStatus = searchParams.get('delivery_invoiceStatus');
-      if (invoiceStatus && delivery.invoice_invoiceStatus !== invoiceStatus) return false;
+      if (invoiceStatus && delivery.delivery_invoiceStatus !== invoiceStatus) return false;
 
       // Delivery Date (From/To)
       const deliveryDateFromStr = searchParams.get('delivery_date_from');
@@ -195,31 +200,25 @@ export async function PUT(request: Request) {
 
       if (issue_individually === true) {
         // INDIVIDUAL ISSUANCE: Generate unique numbers sequentially.
-        let maxIdNum = 0;
-        const regex = new RegExp(`^DS(\d+)`);
-        for (const data of allData) {
-          const currentId = data.delivery_number as string;
-          if (currentId) {
-            const match = currentId.match(regex);
-            if (match) {
-              const idNum = parseInt(match[1], 10);
-              if (!isNaN(idNum) && idNum > maxIdNum) {
-                maxIdNum = idNum;
-              }
-            }
-          }
-        }
-        let nextIdCounter = maxIdNum + 1;
+        let nextIdCounter = getMaxNumericId('DS', allData, 'delivery_number') + 1;
 
         delivery_ids.forEach((id: string) => {
           const index = allData.findIndex(delivery => delivery.delivery_id === id);
           if (index !== -1) {
-            const paddedId = String(nextIdCounter).padStart(9, '0');
-            const newDeliveryNumber = 'DS' + paddedId;
+            let newDeliveryNumber: string;
+            // Check if it's a re-issuance (status is '済' and delivery_number exists)
+            if (allData[index].delivery_status === '済' && allData[index].delivery_number) {
+              newDeliveryNumber = allData[index].delivery_number;
+            } else {
+              // New issuance: generate a new unique number
+              const paddedId = String(nextIdCounter).padStart(9, '0');
+              newDeliveryNumber = 'DS' + paddedId;
+              nextIdCounter++; // Only increment for new numbers
+            }
+
             allData[index].delivery_number = newDeliveryNumber;
             allData[index].delivery_status = '済';
             updatedRecords.push(allData[index]);
-            nextIdCounter++;
           }
         });
 
