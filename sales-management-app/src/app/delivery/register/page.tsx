@@ -122,9 +122,16 @@ export default function DeliveryRegisterPage() {
         const companyData = await companyInfoRes.json();
 
         setCustomers(customersData);
+        console.log("Fetched customers (normalized):");
+        customersData.forEach((c: Customer) => {
+          console.log(`  ${c.customer_name} -> ${c.customer_name.replace(/\s/g, '').toLowerCase()}`);
+          if (c.customer_formalName) {
+            console.log(`  ${c.customer_formalName} (formal) -> ${c.customer_formalName.replace(/\s/g, '').toLowerCase()}`);
+          }
+        });
         setProducts(productsData);
         setCompanyInfo(companyData);
-        console.log("Fetched Products:", productsData);
+        console.log("Fetched companyInfo:", companyData);
       } catch (error: any) {
         console.error("Failed to fetch initial data:", error);
         setErrorDeliveries(error.message);
@@ -350,10 +357,15 @@ export default function DeliveryRegisterPage() {
   };
 
   const generatePdf = async (delivery: Delivery) => {
-    const customer = customers.find(c => c.customer_name === delivery.customer_name);
+    console.log('--- Debug: generatePdf ---');
+    console.log('Searching for customer name:', delivery.customer_name.trim());
+    console.log('Available customer names:', customers.map(c => c.customer_name.trim()));
+    const customer = customers.find(c => c.customer_name.trim() === delivery.customer_name.trim());
     if (!companyInfo || !customer) {
-      throw new Error(`PDF生成に必要な会社または顧客情報が見つかりません (ID: ${delivery.delivery_id})`);
+      console.error('Customer not found in generatePdf for:', delivery.customer_name);
+      throw new Error(`PDF生成に必要な会社または顧客情報が見つかりません (取引先名: ${delivery.customer_name})`);
     }
+    console.log('generatePdf: Request body companyInfo:', JSON.stringify(companyInfo, null, 2));
 
     const pdfResponse = await fetch('/api/delivery/generate-pdf', {
       method: 'POST',
@@ -372,11 +384,14 @@ export default function DeliveryRegisterPage() {
           address: companyInfo.company_address,
           phone: companyInfo.company_phone,
           fax: companyInfo.company_fax,
+          mail: companyInfo.company_mail, // Added
           bankName: companyInfo.company_bankName,
           branchName: companyInfo.company_bankBranch,
           accountType: companyInfo.company_bankType,
           accountNumber: companyInfo.company_bankNumber,
+          bankHolder: companyInfo.company_bankHolder, // Added
           personInCharge: companyInfo.company_contactPerson,
+          invoiceNumber: companyInfo.company_invoiceNumber, // Added
         },
         customers: [customer],
         delivery_number: delivery.delivery_number,
@@ -434,10 +449,13 @@ export default function DeliveryRegisterPage() {
 
       if (consolidated) {
         // Consolidated PDF generation
-        const customer = customers.find(c => c.customer_name === updatedRecords[0]?.customer_name);
+        const customerName = updatedRecords[0]?.customer_name;
+        const customer = customers.find(c => c.customer_name.trim() === customerName?.trim());
         if (!companyInfo || !customer) {
+          console.error('Customer not found in handleIssue (consolidated) for:', customerName);
           throw new Error('PDF生成に必要な会社または顧客情報が見つかりません。');
         }
+        console.log('handleIssue: Request body companyInfo:', JSON.stringify(companyInfo, null, 2));
         const pdfResponse = await fetch('/api/delivery/generate-pdf', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -455,11 +473,14 @@ export default function DeliveryRegisterPage() {
               address: companyInfo.company_address,
               phone: companyInfo.company_phone,
               fax: companyInfo.company_fax,
+              mail: companyInfo.company_mail, // Added
               bankName: companyInfo.company_bankName,
               branchName: companyInfo.company_bankBranch,
               accountType: companyInfo.company_bankType,
               accountNumber: companyInfo.company_bankNumber,
+              bankHolder: companyInfo.company_bankHolder, // Added
               personInCharge: companyInfo.company_contactPerson,
+              invoiceNumber: companyInfo.company_invoiceNumber, // Added
             },
             customers: [customer],
             delivery_number: updatedRecords[0].delivery_number, // Use the common number

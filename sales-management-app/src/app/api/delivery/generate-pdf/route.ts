@@ -16,7 +16,14 @@ try {
     throw new Error('Font file not found.');
   }
   const fontBuffer = readFileSync(fontPath);
-  Font.register({ family: 'NotoSansJP', src: fontPath });
+  Font.register({
+    family: 'NotoSansJP',
+    fonts: [
+      { src: fontPath, fontWeight: 'normal' },
+      // 必要であれば、boldなどのフォントも追加
+    ],
+  });
+  console.log('Font NotoSansJP registered successfully with font-face format.');
 } catch (error) {
   console.error('Failed to register font at module level:', error);
   throw new Error('Failed to load font for PDF generation at module level.');
@@ -25,6 +32,7 @@ try {
 export async function POST(req: NextRequest) {
   try {
         const { deliveries, companyInfo, customers, delivery_number, delivery_date } = await req.json();
+    console.log('API: Received companyInfo:', JSON.stringify(companyInfo, null, 2));
 
     if (!deliveries || !Array.isArray(deliveries) || deliveries.length === 0) {
       return NextResponse.json({ message: 'No delivery data provided' }, { status: 400 });
@@ -32,6 +40,13 @@ export async function POST(req: NextRequest) {
     if (!companyInfo) {
       return NextResponse.json({ message: 'Company info not provided' }, { status: 400 });
     }
+    if (!customers || customers.length === 0) {
+      return NextResponse.json({ message: 'Customer info not provided' }, { status: 400 });
+    }
+
+    const representativeCustomer = customers[0];
+    console.log('--- Debug: API representativeCustomer ---');
+    console.log(representativeCustomer);
 
     const combinedPdf = await PDFDocument.create();
     const itemsPerPage = 10;
@@ -41,23 +56,10 @@ export async function POST(req: NextRequest) {
       const currentPage = Math.floor(i / itemsPerPage) + 1;
       const totalPages = Math.ceil(deliveries.length / itemsPerPage);
 
-      const representativeCustomer = customers.find((c: any) => c.customer_id === chunk[0].customer_id);
-
       const pdfData: DeliveryNotePdfProps = {
         deliveryNoteNumber: chunk[0].delivery_number || delivery_number || '未設定',
         deliveryDate: chunk[0].delivery_date,
-        companyInfo: {
-          name: companyInfo.company_name,
-          postalCode: companyInfo.company_postalCode,
-          address: companyInfo.company_address,
-          phone: companyInfo.company_phone,
-          fax: companyInfo.company_fax,
-          bankName: companyInfo.company_bankName,
-          branchName: companyInfo.company_bankBranch,
-          accountType: companyInfo.company_bankType,
-          accountNumber: companyInfo.company_bankNumber,
-          personInCharge: companyInfo.company_contactPerson,
-        },
+        companyInfo: companyInfo,
         deliveryItems: chunk.map((item: any) => ({
           productCode: item.productCode,
           quantity: item.quantity,
@@ -80,6 +82,7 @@ export async function POST(req: NextRequest) {
         },
       };
 
+      console.log('Debug: pdfData.companyInfo before rendering:', JSON.stringify(pdfData.companyInfo, null, 2));
       const pdfStream = await renderToStream(
         React.createElement(Document, null,
           React.createElement(Page, { size: "A4", style: styles.page },

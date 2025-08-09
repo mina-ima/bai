@@ -8,11 +8,14 @@ interface CompanyInfo {
   address: string;
   phone: string;
   fax: string;
+  mail: string; // 追加
   bankName: string;
   branchName: string;
   accountType: string;
   accountNumber: string;
+  bankHolder: string; // 追加
   personInCharge: string; // 担当者
+  invoiceNumber: string; // 追加
 }
 
 interface CustomerInfo {
@@ -84,7 +87,7 @@ export const styles = StyleSheet.create({
     width: '45%',
   },
   companyBlock: {
-    width: '45%',
+    width: '50%',
     textAlign: 'right',
   },
   text: {
@@ -170,6 +173,7 @@ export const styles = StyleSheet.create({
 // DeliveryNoteSection を DeliveryNotePdf の内部に統合し、単一のページコンテンツとして扱う
 export const DeliveryNoteContent: React.FC<{ data: DeliveryNotePdfProps }> = ({ data }) => {
   const { deliveryNoteNumber, deliveryDate, companyInfo, customerInfo, deliveryItems, currentPage, totalPages, isCopy } = data;
+  console.log('DeliveryNoteContent: companyInfo:', JSON.stringify(companyInfo, null, 2));
 
   const tableHeaders = ['品番', '数量', '単位', '単価', '金額', '備考'];
 
@@ -212,18 +216,21 @@ export const DeliveryNoteContent: React.FC<{ data: DeliveryNotePdfProps }> = ({ 
           <Text style={styles.customerNameText}>{customerInfo.name}　御中</Text>
         </View>
         <View style={styles.companyBlock}>
-          <Text style={styles.companyNameText}>{companyInfo.name}</Text>
-          <Text style={styles.text}>〒{companyInfo.postalCode}</Text>
-          <Text style={styles.text}>{companyInfo.address}</Text>
-          <Text style={styles.text}>TEL: {companyInfo.phone}</Text>
-          <Text style={styles.text}>FAX: {companyInfo.fax}</Text>
+          <Text style={{ fontSize: 12, color: 'black', fontFamily: 'NotoSansJP' }}>Name: {String(companyInfo.name)}</Text>
+          <Text style={{ fontSize: 9, color: 'black', fontFamily: 'NotoSansJP' }}>PostalCode: {String(companyInfo.postalCode)}</Text>
+          <Text style={{ fontSize: 9, color: 'black', fontFamily: 'NotoSansJP' }}>Address: {String(companyInfo.address)}</Text>
+          <Text style={{ fontSize: 9, color: 'black', fontFamily: 'NotoSansJP' }}>Phone: {String(companyInfo.phone)}</Text>
+          <Text style={{ fontSize: 9, color: 'black', fontFamily: 'NotoSansJP' }}>FAX: {String(companyInfo.fax)}</Text>
+          <Text style={{ fontSize: 9, color: 'black', fontFamily: 'NotoSansJP' }}>Mail: {String(companyInfo.mail)}</Text> {/* 追加 */}
           <View style={styles.bankDetailsRow}>
-            <Text style={styles.bankDetailText}>{companyInfo.bankName}</Text>
-            <Text style={styles.bankDetailText}>{companyInfo.branchName}</Text>
-            <Text style={styles.bankDetailText}>{companyInfo.accountType}</Text>
-            <Text style={styles.bankDetailText}>{companyInfo.accountNumber}</Text>
+            <Text style={{ fontSize: 9, color: 'black', fontFamily: 'NotoSansJP' }}>BankName: {String(companyInfo.bankName)}</Text>
+            <Text style={{ fontSize: 9, color: 'black', fontFamily: 'NotoSansJP' }}>BranchName: {String(companyInfo.branchName)}</Text>
+            <Text style={{ fontSize: 9, color: 'black', fontFamily: 'NotoSansJP' }}>AccountType: {String(companyInfo.accountType)}</Text>
+            <Text style={{ fontSize: 9, color: 'black', fontFamily: 'NotoSansJP' }}>AccountNumber: {String(companyInfo.accountNumber)}</Text>
+            <Text style={{ fontSize: 9, color: 'black', fontFamily: 'NotoSansJP' }}>BankHolder: {String(companyInfo.bankHolder)}</Text> {/* 追加 */}
           </View>
-          <Text style={styles.text}>担当者: {companyInfo.personInCharge}</Text>
+          <Text style={{ fontSize: 9, color: 'black', fontFamily: 'NotoSansJP' }}>PersonInCharge: {String(companyInfo.personInCharge)}</Text>
+          <Text style={{ fontSize: 9, color: 'black', fontFamily: 'NotoSansJP' }}>InvoiceNumber: {String(companyInfo.invoiceNumber)}</Text> {/* 追加 */}
           <Text style={styles.closingText}>下記の通り納品致しましたのでご査収ください</Text>
         </View>
       </View>
