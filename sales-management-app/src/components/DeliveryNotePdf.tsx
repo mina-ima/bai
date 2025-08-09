@@ -274,7 +274,3 @@ export const DeliveryNoteContent: React.FC<{ data: DeliveryNotePdfProps }> = ({ 
     </View>
   );
 };
-
-
-
-
