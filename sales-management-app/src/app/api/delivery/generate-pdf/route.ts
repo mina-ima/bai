@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
 
       const pdfData: DeliveryNotePdfProps = {
         deliveryNoteNumber: chunk[0].delivery_number || delivery_number || '未設定',
-        deliveryDate: chunk[0].delivery_date,
+        deliveryDate: delivery_date,
         companyInfo: companyInfo,
         deliveryItems: chunk.map((item: any) => ({
           productCode: item.productCode,
